@@ -160,9 +160,9 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                           <div className="flex items-center gap-1.5 pb-0.5">
                             <span className={cn('-ml-[3px] inline-block size-1.5 shrink-0 rounded-full',
                               isStalled(e.ts, now) ? 'bg-amber-500/70' : 'bg-lime-400 orch-pulse')} />
-                            <span className={cn('text-[10px] tabular-nums',
-                              isStalled(e.ts, now) ? 'text-amber-500/70' : 'text-lime-400/90')}>
-                              {t('feed.runningFor', { d: fmtGap(runningFor(e.ts, now)) || '0s' })}
+                            <span className={cn('text-[10px]',
+                              isStalled(e.ts, now) ? 'text-amber-500/70' : 'text-lime-400/70')}>
+                              {t('feed.nowMarker')}
                             </span>
                           </div>
                           <div className={cn('min-h-0 flex-1 border-l border-dashed',
@@ -200,11 +200,19 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                       <div className="flex min-w-0 items-center gap-2"
                         title={e.burst ? e.burst.paths.join('\n') : rowText(e)}>
                         <ToolLabel tool={e.tool} className="shrink-0" />
-                        {typeof e.detail?.durationMs === 'number' && e.detail.durationMs >= 1000 && (
-                          <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
-                            {fmtGap(e.detail.durationMs)}
-                          </span>
-                        )}
+                        {/* A running call shows its elapsed time in the same slot a
+                            finished one shows its duration, so what is being worked
+                            on and how long it has taken read as one line. */}
+                        {isRunning(e)
+                          ? <span className={cn('shrink-0 font-mono text-[10px] tabular-nums',
+                              isStalled(e.ts, now) ? 'text-amber-500/80' : 'text-lime-400 orch-pulse')}>
+                              {fmtGap(runningFor(e.ts, now)) || '0s'}
+                            </span>
+                          : typeof e.detail?.durationMs === 'number' && e.detail.durationMs >= 1000 && (
+                            <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
+                              {fmtGap(e.detail.durationMs)}
+                            </span>
+                          )}
                         {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
                           <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
                         )}

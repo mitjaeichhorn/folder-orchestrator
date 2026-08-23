@@ -163,5 +163,6 @@
   "remove.safe": "Nothing on disk is touched \u2014 the folder and its files are left exactly as they are.",
   "remove.purge": "Also delete its recorded history",
   "remove.cancel": "Cancel",
-  "remove.confirm": "Stop watching"
+  "remove.confirm": "Stop watching",
+  "feed.nowMarker": "now"
 }
