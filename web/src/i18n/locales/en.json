@@ -111,7 +111,6 @@
   "heat.loading": "Reading tree\u2026",
   "heat.error": "Could not read the project tree",
   "heat.truncated": "Tree truncated \u2014 the project is larger than the display cap",
-  "heat.legend": "Bright = changed most recently. Branches dim only when other branches change, never on a timer.",
   "heat.toggle": "Heat",
   "lightbox.close": "Close",
   "lightbox.hint": "Click anywhere or press Esc to close",

@@ -190,9 +190,6 @@ export function HeatTree ({ folderId, events, running, hoverPath }: {
               </>
             )}
       </div>
-      <p className="text-muted-foreground/70 border-t px-2 py-1.5 text-[10px] leading-snug">
-        {t('heat.legend')}
-      </p>
     </div>
   )
 }

@@ -134,18 +134,18 @@ export function DetailPanel ({ event, folder, onMute }: {
 
         {abs && (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => { window.location.href = `vscode://file/${abs}` }}>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => { window.location.href = `vscode://file/${abs}` }}>
               {t('detail.openEditor')}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => api.reveal(abs)}>{t('detail.reveal')}</Button>
-            <Button size="sm" variant="outline" onClick={() => copy(abs, 'detail.copiedFile')}>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => api.reveal(abs)}>{t('detail.reveal')}</Button>
+            <Button size="sm" variant="outline" className="text-xs" onClick={() => copy(abs, 'detail.copiedFile')}>
               <Copy className="size-3" />{t('detail.copyFile')}
             </Button>
-            <Button size="sm" variant="outline"
+            <Button size="sm" variant="outline" className="text-xs"
               onClick={() => copy(abs.slice(0, abs.lastIndexOf('/')) || folder.path, 'detail.copiedFolder')}>
               <Copy className="size-3" />{t('detail.copyFolder')}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => onMute(event.path!)}>{t('detail.mute')}</Button>
+            <Button size="sm" variant="ghost" className="text-xs" onClick={() => onMute(event.path!)}>{t('detail.mute')}</Button>
           </div>
         )}
 
