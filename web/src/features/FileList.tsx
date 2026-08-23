@@ -8,9 +8,9 @@ import { allFilesByLastChange, treeFiles, maxChanges, churnShare, churnColor, ch
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import type { OrchEvent } from '@/lib/api'
-import { t, fmtTime, fmtAgo } from '@/i18n'
+import { t, fmtTime, fmtAgo, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
-import { isImagePath } from '@shared/glob.js'
+import { isImagePath, LINE_ALERT_AT } from '@shared/glob.js'
 
 /** A page at a time: thousands of rows would stall the tab, and the tail is
     rarely read. "Show more" extends rather than truncating. */
@@ -139,6 +139,15 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
               <FilePath path={f.path}
                 className={cn('truncate text-xs', !f.present && 'line-through opacity-50')} />
             </span>
+
+            {/* The count is the point: "long" is a judgement, 6,314 is a fact. */}
+            {typeof f.lines === 'number' && f.lines > LINE_ALERT_AT && (
+              <Badge variant="outline"
+                className="text-muted-foreground shrink-0 tabular-nums"
+                title={t('files.longFile', { n: fmtNum(f.lines), at: fmtNum(LINE_ALERT_AT) })}>
+                {t('files.lines', { n: fmtNum(f.lines) })}
+              </Badge>
+            )}
 
             {f.actors.has('claude') && (
               <Badge variant="secondary" className="shrink-0 text-violet-300">{t('actor.claude')}</Badge>

@@ -51,6 +51,8 @@ export interface FileRow {
   events: FileGroup['events']
   /** In the tree now. False for a file we watched being deleted. */
   present: boolean
+  /** Line count, or undefined when the server declined to measure it. */
+  lines?: number
 }
 
 /**
@@ -63,7 +65,7 @@ export interface FileRow {
  * it is kept and marked absent rather than silently dropped.
  */
 export function allFilesByLastChange (
-  treeFiles: Array<{ p: string; m?: number }>,
+  treeFiles: Array<{ p: string; m?: number; l?: number }>,
   groups: FileGroup[]
 ): FileRow[] {
   const observed = new Map<string, FileGroup>()
@@ -79,7 +81,8 @@ export function allFilesByLastChange (
       observed: !!g && g.changes > 0,
       actors: g?.actors ?? new Set<string>(),
       events: g?.events ?? [],
-      present: true
+      present: true,
+      lines: f.l
     }
   })
 
@@ -96,14 +99,14 @@ export function allFilesByLastChange (
 }
 
 /** Flatten a tree response into its files. */
-interface TreeNodeLike { p: string; d: 0 | 1; m?: number; c?: TreeNodeLike[] }
+interface TreeNodeLike { p: string; d: 0 | 1; m?: number; l?: number; c?: TreeNodeLike[] }
 
 export function treeFiles (
   nodes: TreeNodeLike[] | undefined,
-  out: Array<{ p: string; m?: number }> = []
-): Array<{ p: string; m?: number }> {
+  out: Array<{ p: string; m?: number; l?: number }> = []
+): Array<{ p: string; m?: number; l?: number }> {
   for (const n of nodes ?? []) {
-    if (n.d === 0) out.push({ p: n.p, m: n.m })
+    if (n.d === 0) out.push({ p: n.p, m: n.m, l: n.l })
     else treeFiles(n.c, out)
   }
   return out

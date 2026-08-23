@@ -121,6 +121,14 @@ Keep it at this file count. New concerns go into an existing file until it genui
 - **The folder picker runs on the host, not in the browser.** `showDirectoryPicker` returns a
   handle, never a path, and the watcher needs a path. `/api/pick-folder` shells out to a *fixed*
   AppleScript via `execFile` — no shell, no interpolation, nothing the client sends reaches it.
+- **Long-file counting is prefiltered three ways, and the cheap ones matter.** Counting lines
+  means reading files, so the walk filters by extension, then by size — a file under 1000 bytes
+  cannot hold 1000 newlines, which is a bound rather than a guess — then probes for a NUL byte.
+  Without that last one a SQLite file and a browser cache blob topped the list with their binary
+  noise counted as lines. Cached on path+size, because the tree refetches on every structural
+  change: 591ms cold, 170ms warm on a 4,783-file project. `.jsonl` is exempt with `.json` —
+  a line-delimited log is thousands of lines by definition, and the five longest files in the
+  test project were all append-only logs.
 - **The heat tree refetches only on structural change.** created/deleted/renamed change the
   shape; modified never does. Debounced, or a build refetches the tree hundreds of times.
 - **Markdown from a watched folder is untrusted input to our page.** A watched tree can be any

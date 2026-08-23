@@ -186,5 +186,7 @@
   "files.loading": "Reading the project…",
   "files.error": "Could not read the project tree",
   "files.unobserved": "Not seen changing while watching — ranked by its file timestamp",
+  "files.longFile": "{n} lines — over {at}, worth splitting",
+  "files.lines": "{n} lines",
   "files.notObserved": "—"
 }
