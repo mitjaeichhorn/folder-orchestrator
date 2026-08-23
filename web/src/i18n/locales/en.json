@@ -155,5 +155,6 @@
   "detail.againstUntracked": "new file, not yet tracked",
   "feed.burstFiles": "{n} files",
   "detail.burstFiles": "{n} files in this change",
-  "detail.title": "Event detail"
+  "detail.title": "Event detail",
+  "feed.runningFor": "running {d}"
 }

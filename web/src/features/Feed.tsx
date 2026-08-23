@@ -141,13 +141,21 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                   {isRunning(e) && (
                     <tr>
                       <td colSpan={5} className="p-0">
-                        <div className="ml-4 flex" style={{ height: gapPx(runningFor(e.ts, now)) }}>
-                          <div className={cn('h-full border-l border-dashed',
-                            isStalled(e.ts, now) ? 'border-amber-500/50' : 'border-lime-400/60 animate-pulse')} />
-                          <span className={cn('self-end pb-0.5 pl-1.5 text-[10px] tabular-nums',
-                            isStalled(e.ts, now) ? 'text-amber-500/70' : 'text-lime-400/80')}>
-                            {fmtGap(runningFor(e.ts, now)) || '0s'}
-                          </span>
+                        {/* The dash grows UP from its row toward now. Without a
+                            marker at the top it runs off the list and there is
+                            nothing visible it is counting to. */}
+                        <div className="ml-4 flex flex-col justify-end"
+                          style={{ height: gapPx(runningFor(e.ts, now)) + 14 }}>
+                          <div className="flex items-center gap-1.5 pb-0.5">
+                            <span className={cn('-ml-[3px] inline-block size-1.5 shrink-0 rounded-full',
+                              isStalled(e.ts, now) ? 'bg-amber-500/70' : 'bg-lime-400 orch-pulse')} />
+                            <span className={cn('text-[10px] tabular-nums',
+                              isStalled(e.ts, now) ? 'text-amber-500/70' : 'text-lime-400/90')}>
+                              {t('feed.runningFor', { d: fmtGap(runningFor(e.ts, now)) || '0s' })}
+                            </span>
+                          </div>
+                          <div className={cn('min-h-0 flex-1 border-l border-dashed',
+                            isStalled(e.ts, now) ? 'border-amber-500/50' : 'border-lime-400/60')} />
                         </div>
                       </td>
                     </tr>
