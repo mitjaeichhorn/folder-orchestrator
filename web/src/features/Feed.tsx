@@ -12,7 +12,7 @@ import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { Lightbox } from './Lightbox'
 import { ToolLabel } from './ToolLabel'
-import { collapseRepeats } from './collapse'
+import { collapseRepeats, collapseBursts } from './collapse'
 import { KindGlyph } from './KindGlyph'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
@@ -52,7 +52,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
 
   // the ONE predicate — same module the server uses
   const rows = useMemo(
-    () => collapseRepeats(events.filter(e => matchEvent(e, filter)).slice().reverse()),
+    () => collapseBursts(collapseRepeats(events.filter(e => matchEvent(e, filter)).slice().reverse())),
     [events, filter]
   )
 
@@ -173,7 +173,8 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                     </td>
                     <td className="w-6 py-1 align-top"><KindGlyph kind={e.kind} /></td>
                     <td className="max-w-0 py-1 pr-2 align-top">
-                      <div className="flex min-w-0 items-center gap-2" title={rowText(e)}>
+                      <div className="flex min-w-0 items-center gap-2"
+                        title={e.burst ? e.burst.paths.join('\n') : rowText(e)}>
                         <ToolLabel tool={e.tool} className="shrink-0" />
                         {typeof e.detail?.durationMs === 'number' && e.detail.durationMs >= 1000 && (
                           <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
@@ -183,16 +184,22 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                         {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
                           <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
                         )}
-                        {e.repeat && e.repeat > 1 && (
+                        {/* a burst already names its count in the label */}
+                        {!e.burst && e.repeat && e.repeat > 1 && (
                           <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 font-mono text-[10px] tabular-nums">
                             {t('feed.repeat', { n: e.repeat })}
                           </span>
                         )}
                         <span className={cn('truncate text-xs',
                           isAuthored(e) ? AUTHORED_TONE : 'font-mono')}>
-                          {e.path && e.kind !== 'tool'
-                            ? <FilePath path={rowText(e)} />
-                            : rowText(e)}
+                          {e.burst
+                            ? <span className="text-muted-foreground/60">
+                                {e.burst.dir ? `${e.burst.dir}/` : ''}
+                                <span className="text-foreground">{t('feed.burstFiles', { n: e.burst.count })}</span>
+                              </span>
+                            : e.path && e.kind !== 'tool'
+                              ? <FilePath path={rowText(e)} />
+                              : rowText(e)}
                         </span>
                       </div>
                     </td>

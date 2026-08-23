@@ -22,3 +22,6 @@ export function activeFolders (nodes: TreeNode[], isActive: (path: string) => bo
   }
   return acc
 }
+
+/** Every folder path in the tree, regardless of activity. */
+export const allFolders = (nodes: TreeNode[]): string[] => activeFolders(nodes, () => true)

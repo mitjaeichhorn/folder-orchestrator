@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type OrchEvent, type Folder } from '@/lib/api'
 import { isImagePath } from '@shared/glob.js'
 import { Thumb } from './Thumb'
+import { FilePath } from './FilePath'
 import { Lightbox } from './Lightbox'
 import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
@@ -64,7 +65,7 @@ export function DetailPanel ({ event, folder, onMute }: {
   // The Edit tool carries its own before/after. Everything else — Bash, a
   // formatter, the operator's editor — carries nothing, so ask git.
   const path = event?.path ?? null
-  const needsGit = !!path && event?.kind !== 'alert' &&
+  const needsGit = !!path && !(event as any)?.burst && event?.kind !== 'alert' &&
     !(event?.kind === 'tool' && (event.tool === 'Edit' || event.tool === 'MultiEdit'))
   useEffect(() => {
     if (!needsGit || !path) { setGitDiff(null); return }
@@ -90,6 +91,7 @@ export function DetailPanel ({ event, folder, onMute }: {
     return <p className="text-muted-foreground p-8 text-center text-sm">{t('detail.none')}</p>
   }
   const d = event.detail ?? {}
+  const burst = (event as any).burst as { count: number; dir: string; paths: string[] } | undefined
   const isEdit = event.kind === 'tool' && (event.tool === 'Edit' || event.tool === 'MultiEdit')
   const abs = event.path ? `${folder.path}/${event.path}` : null
 
@@ -114,6 +116,17 @@ export function DetailPanel ({ event, folder, onMute }: {
         </div>
 
         <Separator />
+
+        {burst && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs uppercase">
+              {t('detail.burstFiles', { n: burst.count })}
+            </p>
+            <div className="bg-muted/40 max-h-72 space-y-0.5 overflow-auto rounded-md border p-2">
+              {burst.paths.map(p => <FilePath key={p} path={p} className="block truncate text-xs" />)}
+            </div>
+          </div>
+        )}
 
         {event.path && isImagePath(event.path) && event.kind !== 'deleted' && (
           <div className="space-y-2">

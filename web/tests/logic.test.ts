@@ -5,7 +5,7 @@ import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED }
 import { isAuthored, AUTHORED_TONE } from '../src/features/authored.ts'
 import { parseTool } from '../src/features/tool-name.ts'
 import { fmtTokens } from '../src/features/usage-format.ts'
-import { collapseRepeats } from '../src/features/collapse.ts'
+import { collapseRepeats, collapseBursts } from '../src/features/collapse.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -221,4 +221,92 @@ test('collapsing never loses an event from the count', () => {
     fs({ path: i % 3 === 0 ? 'x.py' : 'y.py', ts: 5000 - i * 50 })) as any
   const total = collapseRepeats(rows).reduce((n, r) => n + (r.repeat ?? 1), 0)
   assert.equal(total, 20)
+})
+
+// --- bursts: one action, many files -------------------------------------
+const del = (path: string, ts: number) => fs({ kind: 'deleted', path, ts })
+
+test('one command deleting many files collapses to a single directory row', () => {
+  const rows = collapseBursts([1, 2, 3, 4, 5].map(i => del(`web/src/ramp${i}.ts`, 5000)) as any)
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].burst!.count, 5)
+  assert.equal(rows[0].burst!.dir, 'web/src')
+  assert.equal(rows[0].burst!.paths.length, 5, 'every path is kept for the detail panel')
+})
+
+test('an alert fired by the same burst does not split the run', () => {
+  const rows = collapseBursts([
+    del('web/src/a.ts', 5000), del('web/src/b.ts', 5000),
+    ev({ kind: 'alert', path: 'web/src/c.ts', ts: 5000 }),
+    del('web/src/c.ts', 5000), del('web/src/d.ts', 5000)
+  ] as any)
+  const burst = rows.find(r => r.burst)
+  assert.ok(burst, 'the run must survive an interleaved alert')
+  assert.equal(burst!.burst!.count, 4)
+  assert.ok(rows.some(r => r.kind === 'alert'), 'the alert itself is still shown')
+})
+
+test('below the threshold nothing collapses', () => {
+  const rows = collapseBursts([del('web/src/a.ts', 5000), del('web/src/b.ts', 5000)] as any)
+  assert.equal(rows.length, 2)
+  assert.ok(!rows.some(r => r.burst))
+})
+
+test('different directories do not merge', () => {
+  const rows = collapseBursts([
+    del('a/1.ts', 5000), del('a/2.ts', 5000), del('a/3.ts', 5000),
+    del('b/1.ts', 5000), del('b/2.ts', 5000), del('b/3.ts', 5000)
+  ] as any)
+  assert.equal(rows.length, 2)
+  assert.deepEqual(rows.map(r => r.burst!.dir), ['a', 'b'])
+})
+
+test('different kinds do not merge, even in the same directory at the same instant', () => {
+  const rows = collapseBursts([
+    del('a/1.ts', 5000), del('a/2.ts', 5000), del('a/3.ts', 5000),
+    fs({ kind: 'created', path: 'a/4.ts', ts: 5000 }),
+    fs({ kind: 'created', path: 'a/5.ts', ts: 5000 }),
+    fs({ kind: 'created', path: 'a/6.ts', ts: 5000 })
+  ] as any)
+  assert.deepEqual(rows.map(r => r.kind), ['deleted', 'created'])
+})
+
+test('events outside the window are not swept into the burst', () => {
+  const rows = collapseBursts([
+    del('a/1.ts', 9000), del('a/2.ts', 9000), del('a/3.ts', 9000),
+    del('a/4.ts', 1000)
+  ] as any)
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].burst!.count, 3)
+  assert.ok(!rows[1].burst)
+})
+
+test('tool rows are never swallowed by a burst', () => {
+  const rows = collapseBursts([
+    del('a/1.ts', 5000), del('a/2.ts', 5000),
+    ev({ kind: 'tool', tool: 'Bash', path: null, ts: 5000 }),
+    del('a/3.ts', 5000)
+  ] as any)
+  assert.ok(rows.some(r => r.kind === 'tool'), 'the command that caused the burst stays visible')
+})
+
+test('a burst counts events, not rows, when repeats were already collapsed', () => {
+  const rows = collapseBursts([
+    { ...del('a/1.ts', 5000), repeat: 3 },
+    del('a/2.ts', 5000), del('a/3.ts', 5000)
+  ] as any)
+  assert.equal(rows[0].burst!.count, 5, 'three repeats plus two singles')
+})
+
+test('files at the repository root group under an empty directory', () => {
+  const rows = collapseBursts([del('a.ts', 5000), del('b.ts', 5000), del('c.ts', 5000)] as any)
+  assert.equal(rows[0].burst!.dir, '')
+  assert.equal(rows[0].burst!.count, 3)
+})
+
+test('no event disappears through both collapse passes', () => {
+  const input = Array.from({ length: 30 }, (_, i) => del(`d/f${i}.ts`, 5000 - i * 10)) as any
+  const out = collapseBursts(collapseRepeats(input))
+  const total = out.reduce((n, r) => n + (r.burst?.count ?? r.repeat ?? 1), 0)
+  assert.equal(total, 30)
 })

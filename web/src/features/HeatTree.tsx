@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
 import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
-import { pruneToActive, activeFolders } from './prune-tree'
+import { pruneToActive, activeFolders, allFolders } from './prune-tree'
 import { heatColor, heatOpacity } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
@@ -28,15 +28,15 @@ const countNodes = (nodes: Node[]): number =>
 
 const heatStyle = (h: number) => ({ opacity: heatOpacity(h), color: heatColor(h) })
 
-function Branch ({ node, heat, depth, open, toggle }: {
+function Branch ({ node, heat, depth, closed, toggle }: {
   node: Node
   heat: HeatState
   depth: number
-  open: Set<string>
+  closed: Set<string>
   toggle: (p: string) => void
 }) {
   const h = heatOf(heat, node.p)
-  const isOpen = open.has(node.p)
+  const isOpen = !closed.has(node.p)
   const style = { ...heatStyle(h), paddingLeft: depth * 10 + 4 }
   // The stamp in the key remounts the node on every touch, which is what makes
   // the CSS animation replay — re-rendering the same element would not.
@@ -64,7 +64,7 @@ function Branch ({ node, heat, depth, open, toggle }: {
         <span className="truncate">{node.n}</span>
       </button>
       {isOpen && node.c?.map(c => (
-        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} open={open} toggle={toggle} />
+        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle} />
       ))}
     </div>
   )
@@ -72,9 +72,9 @@ function Branch ({ node, heat, depth, open, toggle }: {
 
 export function HeatTree ({ folderId, events }: { folderId: string; events: OrchEvent[] }) {
   const [tree, setTree] = useState<TreeResponse | null>(null)
-  const [open, setOpen] = useState<Set<string>>(new Set())
+  const [closed, setClosed] = useState<Set<string>>(new Set())
   const [error, setError] = useState(false)
-  const [activeOnly, setActiveOnly] = useState(false)
+  const [activeOnly, setActiveOnly] = useState(true)
   const firstLoad = useRef(true)
 
   // A created or deleted file changes the SHAPE of the tree, so the structure
@@ -93,12 +93,7 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
       .then((data: TreeResponse) => {
         setTree(data)
         setError(false)
-        if (firstLoad.current) {
-          // top level open by default; everything below closed, so a closed folder
-          // lighting up is the signal that something inside it changed
-          setOpen(new Set(data.children.filter(c => c.d === 1).map(c => c.p)))
-          firstLoad.current = false
-        }
+        if (firstLoad.current) firstLoad.current = false
       })
       .catch(() => { if (firstLoad.current) setError(true) })
   }, [folderId, debounced])
@@ -112,7 +107,7 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
     [events]
   )
 
-  const toggle = (p: string) => setOpen(s => {
+  const toggle = (p: string) => setClosed(s => {
     const n = new Set(s)
     if (n.has(p)) n.delete(p); else n.add(p)
     return n
@@ -130,7 +125,8 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
   /** Collapse every folder that has not been touched; leave the active ones open. */
   const collapseInactive = () => {
     if (!tree) return
-    setOpen(new Set(activeFolders(tree.children as never, isActive)))
+    const active = new Set(activeFolders(tree.children as never, isActive))
+    setClosed(new Set(allFolders(tree.children as never).filter(p => !active.has(p))))
   }
 
   return (
@@ -160,7 +156,7 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
             : (
               <>
                 {roots.map(n => (
-                  <Branch key={n.p} node={n} heat={heat} depth={0} open={open} toggle={toggle} />
+                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle} />
                 ))}
                 {activeOnly && roots.length === 0 && (
                   <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>
