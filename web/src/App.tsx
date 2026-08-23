@@ -9,6 +9,7 @@ import {
   SidebarProvider, SidebarRail, SidebarTrigger
 } from '@/components/ui/sidebar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { StreamProvider } from '@/hooks/StreamProvider'
 import { useStream } from '@/hooks/useStream'
 import { AddFolderDialog } from '@/features/AddFolderDialog'
@@ -77,8 +78,9 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-      <Tabs defaultValue="activity" className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 overflow-hidden">
+        <ResizablePanel defaultSize="76" minSize="35" className="flex min-h-0 flex-col overflow-hidden">
+          <Tabs defaultValue="activity" className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
         {filtersOpen && (
           <TabsList className="mx-4 my-2 w-fit shrink-0">
             <TabsTrigger value="activity">{t('tab.activity')}</TabsTrigger>
@@ -105,6 +107,17 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           <Usage folderId={folder.id} live={events} />
         </TabsContent>
       </Tabs>
+        </ResizablePanel>
+        {heatOpen && (
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize="24" minSize="12" maxSize="50" className="min-h-0 overflow-hidden">
+              <HeatTree folderId={folder.id} events={events} running={running} />
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
+
       <Sheet open={!!selected} onOpenChange={o => { if (!o) setSelected(null) }}>
         <SheetContent side="right"
           className="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-2xl">
@@ -116,13 +129,6 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           </div>
         </SheetContent>
       </Sheet>
-
-      {heatOpen && (
-        <div className="w-64 min-h-0 shrink-0 overflow-hidden">
-          <HeatTree folderId={folder.id} events={events} running={running} />
-        </div>
-      )}
-      </div>
     </div>
   )
 }

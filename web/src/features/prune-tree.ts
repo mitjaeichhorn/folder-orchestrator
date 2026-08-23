@@ -25,3 +25,12 @@ export function activeFolders (nodes: TreeNode[], isActive: (path: string) => bo
 
 /** Every folder path in the tree, regardless of activity. */
 export const allFolders = (nodes: TreeNode[]): string[] => activeFolders(nodes, () => true)
+
+/**
+ * Only a FILE pulses as "being edited". Directories get their own filesystem
+ * events — a mkdir or rmdir emits one with the directory as its path — so
+ * without this a single new folder lights up its whole branch.
+ */
+export function shouldPulse (node: { p: string; d: 0 | 1 }, running?: Set<string>): boolean {
+  return node.d === 0 && !!running?.has(node.p)
+}

@@ -67,14 +67,22 @@ test('a call past the cap is reported as stalled', () => {
 })
 
 // --- running paths -------------------------------------------------------
-test('only in-flight tool calls that named a file contribute a path', () => {
+test('a finished call contributes nothing, a live one contributes its named file', () => {
+  const now = Date.now()
   const set = runningPaths([
-    { kind: 'tool', path: 'a.ts', detail: { state: 'running' } },
-    { kind: 'tool', path: 'b.ts', detail: { state: 'done', durationMs: 5 } },
-    { kind: 'tool', path: null, detail: { state: 'running' } },
-    { kind: 'modified', path: 'c.ts', detail: { state: 'running' } }
-  ])
-  assert.deepEqual([...set], ['a.ts'])
+    { kind: 'tool', path: 'a.ts', ts: now, detail: { state: 'running' } },
+    { kind: 'tool', path: 'b.ts', ts: now, detail: { state: 'done', durationMs: 5 } }
+  ], now)
+  assert.deepEqual([...set], ['a.ts'], 'b.ts finished, so it is not in-flight work')
+})
+
+test('with nothing in flight, a named path from a finished call is not marked', () => {
+  const now = Date.now()
+  const set = runningPaths([
+    { kind: 'tool', path: 'b.ts', ts: now, detail: { state: 'done', durationMs: 5 } },
+    { kind: 'modified', path: 'c.ts', ts: now }
+  ], now)
+  assert.equal(set.size, 0)
 })
 
 test('a Bash call in flight pulses nothing in the tree — it named no file', () => {
@@ -82,10 +90,11 @@ test('a Bash call in flight pulses nothing in the tree — it named no file', ()
 })
 
 test('the same file running twice appears once', () => {
+  const now = Date.now()
   const set = runningPaths([
-    { kind: 'tool', path: 'a.ts', detail: { state: 'running' } },
-    { kind: 'tool', path: 'a.ts', detail: { state: 'running' } }
-  ])
+    { kind: 'tool', path: 'a.ts', ts: now, detail: { state: 'running' } },
+    { kind: 'tool', path: 'a.ts', ts: now, detail: { state: 'running' } }
+  ], now)
   assert.equal(set.size, 1)
 })
 
@@ -95,11 +104,12 @@ test('an empty or finished list yields an empty set, never undefined', () => {
 })
 
 test('files changed while a command is in flight are marked as active work', () => {
+  // explicit clock: without one these timestamps read as stalled
   const set = runningPaths([
     { kind: 'tool', path: null, ts: 1000, detail: { state: 'running' } },
     { kind: 'modified', path: 'built.js', ts: 1500 },
     { kind: 'created', path: 'also.js', ts: 2000 }
-  ])
+  ], 2100)
   assert.deepEqual([...set].sort(), ['also.js', 'built.js'])
 })
 
@@ -107,7 +117,7 @@ test('files changed BEFORE the running command started are not marked', () => {
   const set = runningPaths([
     { kind: 'tool', path: null, ts: 5000, detail: { state: 'running' } },
     { kind: 'modified', path: 'earlier.js', ts: 4000 }
-  ])
+  ], 5100)
   assert.equal(set.size, 0, 'a change that predates the command is not part of it')
 })
 
@@ -115,7 +125,7 @@ test('with nothing running, no file is marked however recent', () => {
   const set = runningPaths([
     { kind: 'tool', path: null, ts: 5000, detail: { state: 'done', durationMs: 1 } },
     { kind: 'modified', path: 'recent.js', ts: 9000 }
-  ])
+  ], 9100)
   assert.equal(set.size, 0)
 })
 
@@ -123,8 +133,8 @@ test('the window starts at the OLDEST in-flight call, not the newest', () => {
   assert.equal(runningSince([
     { kind: 'tool', path: null, ts: 5000, detail: { state: 'running' } },
     { kind: 'tool', path: null, ts: 2000, detail: { state: 'running' } }
-  ]), 2000)
-  assert.equal(runningSince([{ kind: 'tool', path: null, ts: 1, detail: { state: 'done' } }]), null)
+  ], 5100), 2000)
+  assert.equal(runningSince([{ kind: 'tool', path: null, ts: 1, detail: { state: 'done' } }], 100), null)
 })
 
 test('alerts and prompts are never marked as files being worked on', () => {
@@ -132,6 +142,32 @@ test('alerts and prompts are never marked as files being worked on', () => {
     { kind: 'tool', path: null, ts: 1000, detail: { state: 'running' } },
     { kind: 'alert', path: '.env', ts: 1500 },
     { kind: 'prompt', path: null, ts: 1500 }
-  ])
+  ], 1600)
   assert.equal(set.size, 0)
+})
+
+test('a call stalled past the cap no longer counts as running work', () => {
+  const now = 10_000_000
+  const stale = now - (RUNNING_CAP_MS + 60_000)
+  assert.equal(runningSince([{ kind: 'tool', path: null, ts: stale, detail: { state: 'running' } }], now), null)
+  // and it must not drag the window back so that everything since pulses
+  const set = runningPaths([
+    { kind: 'tool', path: null, ts: stale, detail: { state: 'running' } },
+    { kind: 'modified', path: 'unrelated.js', ts: now - 60_000 }
+  ], now)
+  assert.equal(set.size, 0)
+})
+
+test('a live call still counts even when a stalled one is present', () => {
+  const now = 10_000_000
+  const set = runningPaths([
+    { kind: 'tool', path: null, ts: now - (RUNNING_CAP_MS + 60_000), detail: { state: 'running' } },
+    { kind: 'tool', path: null, ts: now - 5_000, detail: { state: 'running' } },
+    { kind: 'modified', path: 'live.js', ts: now - 2_000 }
+  ], now)
+  assert.deepEqual([...set], ['live.js'])
+})
+
+test('an unknown state is not running — a restart cannot leave rows animating', () => {
+  assert.equal(isRunning({ kind: 'tool', detail: { state: 'unknown' } }), false)
 })

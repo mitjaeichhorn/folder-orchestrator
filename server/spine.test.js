@@ -107,3 +107,16 @@ test('removing the last subscriber leaves no empty set behind', t => {
   assert.equal(bus.hasSubs('f'), false)
   bus._reset()
 })
+
+test('a restart closes tool calls left running, without claiming they succeeded', t => {
+  const D = fresh(t)
+  const live = db.insertEvent(D, { folderId: 'f', ts: Date.now(), kind: 'tool', tool: 'Bash', detail: { state: 'running', toolUseId: 'a' } })
+  const done = db.insertEvent(D, { folderId: 'f', ts: Date.now(), kind: 'tool', tool: 'Bash', detail: { state: 'done', durationMs: 12 } })
+  assert.equal(db.closeOrphanedRunning(D), 1)
+  const rows = db.listEvents(D, { folderId: 'f' })
+  const byId = Object.fromEntries(rows.map(r => [r.id, r.detail]))
+  assert.equal(byId[live].state, 'unknown', 'we cannot know how it ended')
+  assert.equal(byId[live].toolUseId, 'a', 'the rest of the detail survives')
+  assert.equal(byId[done].state, 'done', 'a finished call is untouched')
+  assert.equal(byId[done].durationMs, 12)
+})

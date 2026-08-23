@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
-import { pruneToActive, activeFolders } from '../src/features/prune-tree.ts'
+import { pruneToActive, activeFolders, shouldPulse } from '../src/features/prune-tree.ts'
 import { heatColor, heatOpacity } from '../src/features/heat-color.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
@@ -193,4 +193,27 @@ test('opacity rises with heat and never reaches invisible', () => {
   assert.ok(heatOpacity(0) >= 0.4, 'cold entries stay readable')
   assert.equal(heatOpacity(1), 1)
   assert.ok(heatOpacity(0.5) > heatOpacity(0.1))
+})
+
+// --- pulse scope ---------------------------------------------------------
+test('a file being edited pulses', () => {
+  assert.equal(shouldPulse({ p: 'src/a.ts', d: 0 }, new Set(['src/a.ts'])), true)
+})
+
+test('a directory never pulses, even when its own path is in the running set', () => {
+  // mkdir/rmdir emit an event whose path IS the directory, which would
+  // otherwise light up the entire branch
+  assert.equal(shouldPulse({ p: 'src/burst', d: 1 }, new Set(['src/burst'])), false)
+})
+
+test('an ancestor of an edited file does not pulse', () => {
+  const running = new Set(['src/lib/a.ts'])
+  assert.equal(shouldPulse({ p: 'src', d: 1 }, running), false)
+  assert.equal(shouldPulse({ p: 'src/lib', d: 1 }, running), false)
+  assert.equal(shouldPulse({ p: 'src/lib/a.ts', d: 0 }, running), true)
+})
+
+test('nothing pulses when nothing is running', () => {
+  assert.equal(shouldPulse({ p: 'a.ts', d: 0 }, undefined), false)
+  assert.equal(shouldPulse({ p: 'a.ts', d: 0 }, new Set()), false)
 })

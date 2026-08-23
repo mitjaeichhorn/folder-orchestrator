@@ -107,6 +107,14 @@ Keep it at this file count. New concerns go into an existing file until it genui
   `runningPaths` therefore also includes files the watcher saw change *while* a call was in
   flight. Note what that claims: the change happened during a running command, not that the
   command caused it. Co-occurrence, not causation — the same restraint the attribution join uses.
+- **Only a FILE pulses as "being edited".** Directories emit their own filesystem events — a
+  mkdir writes an event whose path IS the directory — so pulsing on path alone lights up a whole
+  branch. `shouldPulse` requires `node.d === 0`.
+- **A restart orphans in-flight tool calls.** They are written `running` and closed when the
+  result is tailed; tailing resumes at EOF, so results written before the restart are never seen
+  and those rows claim to be running forever — which also drags the work-in-progress window back
+  hours and pulses everything. Boot sweeps them to `unknown`, never `done`: we cannot know how
+  they ended. `runningSince` additionally ignores anything past the stall cap.
 - **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
   branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
   rather than "how long ago was this".

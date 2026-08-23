@@ -120,6 +120,28 @@ export function sweepRetention (db, days = 30, now = Date.now()) {
   return db.prepare('DELETE FROM events WHERE ts < ?').run(cutoff).changes
 }
 
+/**
+ * A tool call is written as `running` and closed when its result is tailed. A
+ * restart resumes tailing at EOF, so results written before it are never seen
+ * and those rows would claim to be running forever — which also drags the
+ * "work in progress" window back hours.
+ *
+ * We cannot know how they ended, so they become `unknown` rather than `done`.
+ */
+export function closeOrphanedRunning (db) {
+  const rows = db.prepare("SELECT id, detail FROM events WHERE kind = 'tool'").all()
+  const upd = db.prepare('UPDATE events SET detail = ? WHERE id = ?')
+  let n = 0
+  for (const r of rows) {
+    let d
+    try { d = JSON.parse(r.detail) } catch { continue }
+    if (d.state !== 'running') continue
+    upd.run(JSON.stringify({ ...d, state: 'unknown' }), r.id)
+    n++
+  }
+  return n
+}
+
 // --- token usage ---------------------------------------------------------
 /**
  * message_id is UNIQUE and the insert is OR IGNORE: re-reading a transcript

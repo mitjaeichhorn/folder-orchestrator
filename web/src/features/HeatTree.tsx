@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
 import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
-import { pruneToActive, activeFolders, allFolders } from './prune-tree'
+import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { heatColor, heatOpacity } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
@@ -43,7 +43,7 @@ function Branch ({ node, heat, depth, closed, toggle, running }: {
   // the CSS animation replay — re-rendering the same element would not.
   const flash = justChanged(heat, node.p)
   const flashKey = flash ? stampOf(heat, node.p) : 'idle'
-  const pulsing = running?.has(node.p) ?? false
+  const pulsing = shouldPulse(node, running)
 
   if (node.d === 0) {
     return (

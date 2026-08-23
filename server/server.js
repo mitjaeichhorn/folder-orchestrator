@@ -214,10 +214,15 @@ server.on('error', err => {
 server.listen(PORT, HOST, () => {
   let swept = 0
   try { swept = db.sweepRetention(database, 30) } catch (err) { log('ERROR', 'retention', { message: err.message }) }
+  let orphaned = 0
+  try { orphaned = db.closeOrphanedRunning(database) } catch (err) { log('ERROR', 'orphans', { message: err.message }) }
   const folders = db.listFolders(database)
   for (const f of folders) if (f.enabled) startFolder(f)
   watcher.startTicker()
-  log('INFO', 'boot', { port: PORT, db_path: DB_PATH, folder_count: folders.length, retention_deleted: swept })
+  log('INFO', 'boot', {
+    port: PORT, db_path: DB_PATH, folder_count: folders.length,
+    retention_deleted: swept, orphaned_running_closed: orphaned
+  })
   process.stderr.write(`folder-orchestrator on http://${HOST}:${PORT}\n`)
 })
 

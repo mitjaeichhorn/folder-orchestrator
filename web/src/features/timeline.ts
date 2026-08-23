@@ -58,10 +58,13 @@ export const isStalled = (startTs: number, now: number) => now - startTs > RUNNI
 type MinEvent = { kind?: string; path?: string | null; ts?: number; detail?: any }
 
 /** When the oldest still-running tool call started, or null if nothing is running. */
-export function runningSince (events: MinEvent[]): number | null {
+export function runningSince (events: MinEvent[], now = Date.now()): number | null {
   let earliest: number | null = null
   for (const e of events) {
     if (!isRunning(e) || typeof e.ts !== 'number') continue
+    // a call "running" for longer than the cap is stalled, not live; counting it
+    // would drag the work-in-progress window back hours and pulse everything
+    if (isStalled(e.ts, now)) continue
     if (earliest === null || e.ts < earliest) earliest = e.ts
   }
   return earliest
@@ -81,11 +84,11 @@ export function runningSince (events: MinEvent[]): number | null {
  * the command caused it. Co-occurrence, not causation — the same reason the
  * attribution join refuses to label an event `claude` without a path match.
  */
-export function runningPaths (events: MinEvent[]): Set<string> {
+export function runningPaths (events: MinEvent[], now = Date.now()): Set<string> {
   const out = new Set<string>()
-  const since = runningSince(events)
+  const since = runningSince(events, now)
   for (const e of events) {
-    if (isRunning(e) && e.path) out.add(e.path)
+    if (isRunning(e) && e.path && !isStalled(e.ts ?? now, now)) out.add(e.path)
     if (since !== null && e.path && typeof e.ts === 'number' && e.ts >= since &&
         e.kind !== 'tool' && e.kind !== 'prompt' && e.kind !== 'alert') {
       out.add(e.path)
