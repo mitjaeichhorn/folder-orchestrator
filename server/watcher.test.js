@@ -11,8 +11,11 @@ import * as db from './db.js'
 
 const tmp = t => { const d = mkdtempSync(join(tmpdir(), 'orchw-')); t.after(() => rmSync(d, { recursive: true, force: true })); return d }
 
-// ponytail: poll, never sleep — fs.watch latency varies with machine load.
-async function until (fn, ms = 2000) {
+// Poll, never sleep — fs.watch latency varies with machine load. The ceiling is
+// generous on purpose: under a parallel build FSEvents delivery has been seen to
+// exceed 2s, and a longer wait weakens nothing (the assertion is unchanged, the
+// test simply stops failing for being impatient).
+async function until (fn, ms = 8000) {
   const end = Date.now() + ms
   while (Date.now() < end) { const v = fn(); if (v) return v; await new Promise(r => setTimeout(r, 20)) }
   return fn()
