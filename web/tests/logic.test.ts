@@ -4,6 +4,7 @@ import { matchEvent, globToRe, ALL_KINDS } from '../../shared/glob.js'
 import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED } from '../src/features/session-logic.ts'
 import { isAuthored, AUTHORED_TONE } from '../src/features/authored.ts'
 import { parseTool } from '../src/features/tool-name.ts'
+import { fmtTokens } from '../src/features/usage-format.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -140,4 +141,18 @@ test('null and empty tools yield null, not a crash', () => {
   assert.equal(parseTool(null), null)
   assert.equal(parseTool(undefined), null)
   assert.equal(parseTool(''), null)
+})
+
+// --- token formatting ----------------------------------------------------
+test('token counts compact without losing the magnitude', () => {
+  assert.equal(fmtTokens(0), '0')
+  assert.equal(fmtTokens(999), '999')
+  assert.equal(fmtTokens(1500), '1.5k')
+  assert.equal(fmtTokens(25_000), '25k')
+  assert.equal(fmtTokens(186_400), '186k')
+  assert.equal(fmtTokens(25_644_155), '25.6M')
+})
+
+test('non-finite and negative token counts render as zero, never NaN', () => {
+  for (const v of [NaN, Infinity, -5, -Infinity]) assert.equal(fmtTokens(v), '0')
 })

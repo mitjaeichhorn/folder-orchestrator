@@ -19,6 +19,18 @@ export interface OrchEvent {
 export interface FolderStatus { folderId: string; watching: boolean; reason: string | null; fileCount: number; eventsPerMin: number }
 export interface Folder { id: string; path: string; name: string; ignore: string[]; enabled: boolean; createdAt: number; status: FolderStatus }
 export interface Session { id: string; startedAt: number; lastAt: number; events: number; files: number }
+export interface TopicUsage {
+  topic: string
+  messages: number
+  inputTokens: number
+  outputTokens: number
+  thinkingTokens: number
+  cacheRead: number
+  cacheCreation: number
+  firstTs: number
+  lastTs: number
+}
+
 export interface Rule {
   id: string; folderId: string | null; kinds: EventKind[]; pathGlob: string
   thresholdCount: number | null; thresholdSeconds: number | null
@@ -52,6 +64,7 @@ export const api = {
     if (opts.session) q.set('session', opts.session)
     return req<OrchEvent[]>(`/api/events?${q}`)
   },
+  usage: (folderId: string) => req<TopicUsage[]>(`/api/usage?folder=${folderId}`),
   sessions: (folderId: string) => req<Session[]>(`/api/sessions?folder=${folderId}`),
   rules: () => req<Rule[]>('/api/rules'),
   addRule: (r: Partial<Rule>) => req<Rule>('/api/rules', { method: 'POST', body: JSON.stringify(r) }),

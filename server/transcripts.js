@@ -1,8 +1,8 @@
-import { readdirSync, statSync, existsSync, openSync, readSync, closeSync, watch } from 'node:fs'
+import { readdirSync, statSync, existsSync, openSync, readSync, closeSync, watch, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import * as bus from './bus.js'
-import { relabelEvent, updateEventDetail } from './db.js'
+import { relabelEvent, updateEventDetail, insertUsage } from './db.js'
 import { log } from './log.js'
 
 const ROOT = process.env.ORCH_CLAUDE_DIR || join(homedir(), '.claude', 'projects')
@@ -53,6 +53,19 @@ export function parseLine (line, folderId) {
   }
 
   if (o.type === 'assistant') {
+    // Every assistant record carries a usage block. It belongs to the turn, not
+    // to any one tool call, so it goes to its own table rather than the event
+    // stream — 533 usage rows would drown the feed.
+    const u = o.message?.usage
+    const usage = u && {
+      folderId, ts, sessionId, topic: topicOf(sessionId),
+      messageId: o.message?.id ?? o.requestId ?? null,
+      inputTokens: u.input_tokens ?? 0,
+      outputTokens: u.output_tokens ?? 0,
+      thinkingTokens: u.output_tokens_details?.thinking_tokens ?? 0,
+      cacheRead: u.cache_read_input_tokens ?? 0,
+      cacheCreation: u.cache_creation_input_tokens ?? 0
+    }
     const blocks = Array.isArray(o.message?.content) ? o.message.content : []
     const out = []
     for (const b of blocks) {
@@ -77,7 +90,7 @@ export function parseLine (line, folderId) {
         tool: b.name, topic: topicOf(sessionId), detail
       })
     }
-    return { events: out }
+    return { events: out, usage }
   }
 
   // tool_result closes a call that is already on screen
@@ -160,11 +173,14 @@ function drain (folderId, t, initial = false) {
       try { size = statSync(file).size } catch {}
       // start at EOF: never replay history
       t.files.set(name, { ino: null, offset: initial ? size : 0, buf: '' })
-      if (initial) { primeTopics(file); continue }
+      if (initial) { primeTopics(file, folderId); continue }
     }
     const state = t.files.get(name)
     for (const line of readFrom(file, state)) {
-      const { events, skip, results } = parseLine(line, folderId)
+      const { events, skip, results, usage } = parseLine(line, folderId)
+      if (usage && db) {
+        try { insertUsage(db, usage) } catch (err) { log('ERROR', 'usage_insert', { message: err.message }) }
+      }
       if (results) { for (const r of results) closeToolCall(folderId, r); continue }
       if (skip) { if (skip === 'bad_json') log('WARN', 'bad_line', { file, first: line.slice(0, 80) }); continue }
       for (const ev of events) {
@@ -188,34 +204,47 @@ function drain (folderId, t, initial = false) {
   }
 }
 
-// Tailing starts at EOF, so the `last-prompt` for the turn already in progress
-// is behind us. Without this, the topic stays null until the operator's NEXT
-// prompt — and every restart loses it. Read back over the file's tail to
-// recover the most recent topic per session.
-const PRIME_BYTES = 512 * 1024
-
-export function primeTopics (file) {
-  let st
-  try { st = statSync(file) } catch { return 0 }
-  const start = Math.max(0, st.size - PRIME_BYTES)
-  const len = st.size - start
-  if (len <= 0) return 0
-  const buf = Buffer.alloc(len)
-  const fd = openSync(file, 'r')
-  try { readSync(fd, buf, 0, len, start) } finally { closeSync(fd) }
-  const lines = buf.toString('utf8').split('\n')
-  if (start > 0) lines.shift() // first line is probably partial
+// Tailing starts at EOF, so everything already written is invisible: the topic
+// for the turn in progress, and every token the session has spent. Both matter,
+// so on first tail we read the whole file once. Usage rows are deduped by
+// message_id, which makes this idempotent across restarts.
+export function primeTopics (file, folderId = null) {
+  let text
+  try { text = readFileSync(file, 'utf8') } catch { return 0 }
   let found = 0
-  for (const line of lines) {
-    if (!line.includes('last-prompt')) continue
-    try {
-      const o = JSON.parse(line)
-      if (o.type === 'last-prompt' && o.lastPrompt && o.sessionId) {
-        topics.set(o.sessionId, String(o.lastPrompt).trim().split('\n')[0].slice(0, TOPIC_MAX))
-        found++
-      }
-    } catch { /* partial or malformed line — skip, same as the tailer */ }
+  let usageRows = 0
+  for (const line of text.split('\n')) {
+    if (!line) continue
+    // cheap pre-filter: most lines are neither, and JSON.parse is the expensive part
+    if (!line.includes('last-prompt') && !line.includes('"usage"')) continue
+    let o
+    try { o = JSON.parse(line) } catch { continue }
+    const sid = o.sessionId || null
+    if (o.type === 'last-prompt' && o.lastPrompt && sid) {
+      topics.set(sid, String(o.lastPrompt).trim().split('\n')[0].slice(0, TOPIC_MAX))
+      found++
+      continue
+    }
+    if (o.type === 'assistant' && o.message?.usage && folderId && db) {
+      const u = o.message.usage
+      try {
+        const added = insertUsage(db, {
+          folderId,
+          ts: o.timestamp ? Date.parse(o.timestamp) : Date.now(),
+          sessionId: sid,
+          topic: topicOf(sid),
+          messageId: o.message?.id ?? o.requestId ?? null,
+          inputTokens: u.input_tokens ?? 0,
+          outputTokens: u.output_tokens ?? 0,
+          thinkingTokens: u.output_tokens_details?.thinking_tokens ?? 0,
+          cacheRead: u.cache_read_input_tokens ?? 0,
+          cacheCreation: u.cache_creation_input_tokens ?? 0
+        })
+        if (added) usageRows++
+      } catch { /* a malformed row must not stop the backfill */ }
+    }
   }
+  if (usageRows) log('INFO', 'usage_backfilled', { file, rows: usageRows })
   return found
 }
 

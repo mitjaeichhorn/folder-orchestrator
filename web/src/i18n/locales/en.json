@@ -126,5 +126,19 @@
   "add.errorPickerPlatform": "The folder dialog is only available on macOS \u2014 type a path instead",
   "add.errorPickerUnavailable": "Could not open the folder dialog \u2014 type a path instead",
   "add.errorPickerTimeout": "The folder dialog timed out",
-  "filter.toggle": "Filter"
+  "filter.toggle": "Filter",
+  "tab.tokens": "Tokens",
+  "usage.task": "Task",
+  "usage.output": "Output",
+  "usage.thinking": "Thinking",
+  "usage.cacheRead": "Cache read",
+  "usage.turnsShort": "Turns",
+  "usage.noTopic": "Before the first prompt",
+  "usage.loading": "Reading usage\u2026",
+  "usage.error": "Could not read token usage",
+  "usage.empty": "No token usage recorded \u2014 this folder has no Claude Code history",
+  "usage.turns": "{n} turns",
+  "usage.totalOut": "{n} output",
+  "usage.totalThinking": "{n} thinking",
+  "usage.totalCacheRead": "{n} cache read"
 }

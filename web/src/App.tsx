@@ -16,6 +16,7 @@ import { Feed } from '@/features/Feed'
 import { DetailPanel } from '@/features/DetailPanel'
 import { Sessions } from '@/features/Sessions'
 import { Rules } from '@/features/Rules'
+import { Usage } from '@/features/Usage'
 import { HeatTree } from '@/features/HeatTree'
 import { api, type Folder, type OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
@@ -79,6 +80,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
             <TabsTrigger value="activity">{t('tab.activity')}</TabsTrigger>
             <TabsTrigger value="session">{t('tab.session')}</TabsTrigger>
             <TabsTrigger value="rules">{t('tab.rules')}</TabsTrigger>
+            <TabsTrigger value="tokens">{t('tab.tokens')}</TabsTrigger>
           </TabsList>
         )}
 
@@ -101,6 +103,10 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
 
         <TabsContent value="rules" className="min-h-0 flex-1 overflow-hidden">
           <Rules />
+        </TabsContent>
+
+        <TabsContent value="tokens" className="min-h-0 flex-1 overflow-hidden">
+          <Usage folderId={folder.id} live={events} />
         </TabsContent>
       </Tabs>
       {heatOpen && (

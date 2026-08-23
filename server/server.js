@@ -118,6 +118,9 @@ const server = createServer(async (req, res) => {
         sessionId: url.searchParams.get('session') || undefined,
         kinds
       }))
+    } else if (p === '/api/usage' && req.method === 'GET') {
+      status = json(res, 200, db.usageByTopic(database, url.searchParams.get('folder')))
+
     } else if (p === '/api/sessions' && req.method === 'GET') {
       status = json(res, 200, db.sessions(database, url.searchParams.get('folder')))
 

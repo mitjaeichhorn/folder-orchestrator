@@ -72,6 +72,14 @@ Keep it at this file count. New concerns go into an existing file until it genui
   work is still running, and closed with a real duration when the result lands. Rows from before
   this existed have no `detail.state`; `isRunning` requires `state === 'running'` precisely so
   old rows never animate.
+- **Token usage is on disk already.** Every assistant record carries a `message.usage` block
+  (input, output, thinking, cache read/creation). Joined to the topic we already track, that
+  answers "which task cost the most" with no extra instrumentation. It lives in its own
+  `token_usage` table, not the event stream — 500+ usage rows would drown the feed. `message_id`
+  is UNIQUE and the insert is `OR IGNORE`, so re-reading a transcript never double-counts.
+- **First tail reads the WHOLE transcript.** Tailing starts at EOF, so history is invisible
+  otherwise — and for token accounting, history is the entire feature. The full pass is
+  idempotent thanks to the dedupe above.
 - **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
   branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
   rather than "how long ago was this".

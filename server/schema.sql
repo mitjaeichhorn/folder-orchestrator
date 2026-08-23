@@ -34,3 +34,19 @@ CREATE TABLE IF NOT EXISTS rules (
   enabled           INTEGER NOT NULL DEFAULT 1,
   created_at        INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS token_usage (
+  id              INTEGER PRIMARY KEY,
+  folder_id       TEXT NOT NULL,
+  ts              INTEGER NOT NULL,
+  session_id      TEXT,
+  topic           TEXT,
+  message_id      TEXT UNIQUE,
+  input_tokens    INTEGER NOT NULL DEFAULT 0,
+  output_tokens   INTEGER NOT NULL DEFAULT 0,
+  thinking_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read      INTEGER NOT NULL DEFAULT 0,
+  cache_creation  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS usage_folder_topic ON token_usage (folder_id, topic);

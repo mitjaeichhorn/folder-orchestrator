@@ -120,6 +120,38 @@ export function sweepRetention (db, days = 30, now = Date.now()) {
   return db.prepare('DELETE FROM events WHERE ts < ?').run(cutoff).changes
 }
 
+// --- token usage ---------------------------------------------------------
+/**
+ * message_id is UNIQUE and the insert is OR IGNORE: re-reading a transcript
+ * (rotation, restart, a second folder pointing at the same project) must never
+ * double-count tokens.
+ */
+export function insertUsage (db, u) {
+  const r = db.prepare(`INSERT OR IGNORE INTO token_usage
+      (folder_id,ts,session_id,topic,message_id,input_tokens,output_tokens,thinking_tokens,cache_read,cache_creation)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(u.folderId, u.ts, u.sessionId ?? null, u.topic ?? null, u.messageId ?? null,
+         u.inputTokens | 0, u.outputTokens | 0, u.thinkingTokens | 0, u.cacheRead | 0, u.cacheCreation | 0)
+  return r.changes > 0
+}
+
+/** Tokens per task, biggest first. The topic IS the task. */
+export function usageByTopic (db, folderId) {
+  return db.prepare(`
+    SELECT COALESCE(topic, '') AS topic,
+           COUNT(*)                AS messages,
+           SUM(input_tokens)       AS inputTokens,
+           SUM(output_tokens)      AS outputTokens,
+           SUM(thinking_tokens)    AS thinkingTokens,
+           SUM(cache_read)         AS cacheRead,
+           SUM(cache_creation)     AS cacheCreation,
+           MIN(ts)                 AS firstTs,
+           MAX(ts)                 AS lastTs
+    FROM token_usage WHERE folder_id = ?
+    GROUP BY COALESCE(topic, '')
+    ORDER BY outputTokens DESC`).all(folderId)
+}
+
 // --- rules ---------------------------------------------------------------
 const rowToRule = r => r && ({
   id: r.id, folderId: r.folder_id, kinds: JSON.parse(r.kinds), pathGlob: r.path_glob,
