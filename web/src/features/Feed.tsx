@@ -8,6 +8,7 @@ import { gaps, gapPx, isRunning, runningFor, isStalled } from './timeline'
 import { Lightbox } from './Lightbox'
 import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './collapse'
 import { FeedRow } from './FeedRow'
+import { FileList } from './FileList'
 import { KindGlyph } from './KindGlyph'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
@@ -38,7 +39,7 @@ export function Feed ({
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
   const [windowMs, setWindowMs] = useState(0)
-  const [view, setView] = useState<'timeline' | 'tree'>('timeline')
+  const [view, setView] = useState<'timeline' | 'tree' | 'files'>('timeline')
   const [zoom, setZoom] = useState<string | null>(null)
   const [pinned, setPinned] = useState(true)
   // track what is COLLAPSED, mirroring HeatTree: a call arriving later is open
@@ -107,6 +108,8 @@ export function Feed ({
           onClick={() => setView('timeline')}>{t('view.timeline')}</Button>
         <Button size="sm" variant={view === 'tree' ? 'secondary' : 'ghost'}
           onClick={() => setView('tree')}>{t('view.byTopic')}</Button>
+        <Button size="sm" variant={view === 'files' ? 'secondary' : 'ghost'}
+          onClick={() => setView('files')}>{t('view.byFile')}</Button>
       </div>
       {filtersOpen && (
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -139,7 +142,12 @@ export function Feed ({
       )}
 
       <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto pt-1">
-        {view === 'tree'
+        {view === 'files'
+          // flatRows for the same reason as the topic view: this one aggregates
+          // per file itself, so it needs every event, not the nested shape
+          ? <FileList events={flatRows} folderId={folderId} onSelect={onSelect}
+              onLocate={onLocate} locatable={locatable} onZoom={setZoom} />
+          : view === 'tree'
           // flatRows, not rows: the topic tree groups every event itself, and
           // handing it the nested array would hide every adopted child
           ? <Tree events={flatRows} selected={selected} onSelect={onSelect} folderId={folderId} onZoom={setZoom} />
