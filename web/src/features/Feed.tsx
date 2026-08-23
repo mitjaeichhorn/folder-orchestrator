@@ -27,13 +27,14 @@ const WINDOWS = [
 ]
 
 
-export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOpen = true }: {
+export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOpen = true, running }: {
   events: OrchEvent[]
   evicted: number
   selected: OrchEvent | null
   onSelect: (e: OrchEvent) => void
   folderId: string
   filtersOpen?: boolean
+  running?: Set<string>
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
@@ -195,13 +196,16 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                           </span>
                         )}
                         <span className={cn('truncate text-xs',
-                          isAuthored(e) ? AUTHORED_TONE : 'font-mono')}>
+                          isAuthored(e) ? AUTHORED_TONE : 'font-mono',
+                          e.path && running?.has(e.path) && 'orch-pulse-soft')}>
                           {e.burst
                             ? <span className="text-muted-foreground/60">
                                 {e.burst.dir ? `${e.burst.dir}/` : ''}
                                 <span className="text-foreground">{t('feed.burstFiles', { n: e.burst.count })}</span>
                               </span>
-                            : e.path && e.kind !== 'tool'
+                            : e.path
+                              // a tool row that names a file is still a path, and
+                              // its folders should be muted like any other
                               ? <FilePath path={rowText(e)} />
                               : rowText(e)}
                         </span>

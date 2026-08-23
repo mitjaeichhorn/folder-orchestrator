@@ -9,10 +9,10 @@ export function ToolLabel ({ tool, className }: { tool: string | null; className
   const p = parseTool(tool)
   if (!p) return null
   if (!p.mcp) {
-    // Plain tool names (Bash, Read, Edit) repeat on nearly every row — muted, so
-    // the description or path beside them is what the eye lands on. Same reason
-    // directories are muted and filenames are not.
-    return <span className={cn('text-muted-foreground/70 font-mono text-xs', className)}>{p.name}</span>
+    // Plain tool names (Bash, Read, Edit) repeat on nearly every row — light
+    // grey, so the description or path beside them is what the eye lands on.
+    // Same reason directories are muted and filenames are not.
+    return <span className={cn('font-mono text-xs text-zinc-400', className)}>{p.name}</span>
   }
   return (
     <span className={cn('flex min-w-0 items-center gap-1', className)} title={tool ?? undefined}>

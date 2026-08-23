@@ -92,7 +92,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
 
         <TabsContent value="activity" className="min-h-0 flex-1 overflow-hidden">
           <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
-            folderId={folder.id} filtersOpen={filtersOpen} />
+            folderId={folder.id} filtersOpen={filtersOpen} running={running} />
         </TabsContent>
 
         <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">

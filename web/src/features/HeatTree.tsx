@@ -44,12 +44,15 @@ function Branch ({ node, heat, depth, closed, toggle, running }: {
   const flash = justChanged(heat, node.p)
   const flashKey = flash ? stampOf(heat, node.p) : 'idle'
   const pulsing = shouldPulse(node, running)
+  // at full heat heatColor returns pure white; weight carries the same signal
+  // for anyone who cannot separate white from near-white at 10px
+  const justEdited = h >= 1
 
   if (node.d === 0) {
     return (
       <div key={flashKey}
         className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight',
-          flash && 'orch-flash', pulsing && 'orch-pulse')}
+          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse')}
         style={style} title={node.p}>
         {node.n}
       </div>
@@ -59,7 +62,7 @@ function Branch ({ node, heat, depth, closed, toggle, running }: {
     <div>
       <button key={flashKey} onClick={() => toggle(node.p)}
         className={cn('hover:bg-muted/40 flex w-full items-center gap-0.5 truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
-          flash && 'orch-flash', pulsing && 'orch-pulse')}
+          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse')}
         style={style} title={node.p}>
         {isOpen
           ? <ChevronDown className="size-2.5 shrink-0" />
