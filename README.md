@@ -1,18 +1,29 @@
 # Folder Orchestrator
 
-**"Where is Claude Code right now — and is the loop actually doing what I asked?"**
+**A control view over autonomous agent work.**
 
-I kept asking myself that. You set an agent running, it goes quiet for twenty minutes, and the
-terminal scrolls past faster than anyone reads. Is it still on the task I gave it, or has it been
-rewriting test fixtures for the last ten minutes? Which files has it actually touched? Is it
-*working*, or is it stuck in a loop repairing something it broke three steps ago?
+Coding agents no longer run one instruction at a time while you watch. You hand over a task and they
+go — spawning sub-agents, working in parallel worktrees, running for twenty minutes across a dozen
+files. Delegation is the whole point. Losing sight of the work is the price, and nobody agreed to
+pay it.
 
-I could never answer that without stopping the run and going digging. So I built the thing that
-answers it while the work is still happening.
+The question I kept asking, and could never answer without stopping the run and going digging:
+**where is it right now, and is the loop still doing what I asked?** Is it on the task, or has it
+spent ten minutes rewriting test fixtures? Which files has it actually touched? Is it making
+progress, or repairing something it broke three steps ago?
 
-Point it at your project folders. It watches every file to full depth, reads Claude Code's own
-transcripts, and joins the two — so at any moment you can see what the agent is doing *now*, what
-it has changed, what you asked it for, and what it has cost.
+A terminal cannot answer that. A terminal is a transcript — it scrolls, it reports what the agent
+*says* it is doing, and it shows you one session at a time. What supervision needs is a view: every
+watched project at once, live, with ground truth underneath it.
+
+That is what this is. Point it at your project folders and it watches every file to full depth,
+reads Claude Code's own transcripts, and joins the two — so at any moment you can see what is
+running, what it has changed, what you asked for, and what it has cost. Several projects at once,
+each with its own live event rate, so parallel agent work is one glance rather than four terminals.
+
+The ground truth matters more than it sounds. An agent's log tells you what it *intended*. The
+filesystem knows what actually landed. When those disagree — and they do — this shows you the
+second one.
 
 macOS, localhost, one operator. No LLM anywhere in it.
 
@@ -20,42 +31,42 @@ macOS, localhost, one operator. No LLM anywhere in it.
 
 ---
 
-## What it actually answers
+## What it answers
 
-**"Where is it right now?"** — the currently running tool call, with a live counter of how long it
-has been going, and a pulse on the specific files being written. Long gaps show up as measured
-vertical distance between rows, so a stall looks like a stall instead of looking like nothing.
+**"Where is it right now?"** — the running tool call, with a live counter of how long it has been
+going and a pulse on the specific files being written. Gaps are drawn as measured vertical distance,
+so a stall looks like a stall rather than like nothing.
 
-**"Is it doing what I asked?"** — every action is filed under your prompt, taken verbatim from the
-transcript. If the agent has wandered off the task, the topic it is filed under says so.
+**"Is it still on task?"** — every action is filed under your prompt, verbatim from the transcript.
+Drift shows up as work accumulating under a topic you finished with.
 
-**"What has it touched?"** — the project tree, brightest where work just landed, so drift into an
-unexpected corner of the repo is visible as a bright branch somewhere you were not expecting one.
+**"Where has it gone?"** — the project tree, brightest where work just landed. An agent wandering
+into an unexpected corner of the repo is a bright branch somewhere you were not expecting one.
 
-**"Is it stuck in a loop?"** — files ranked by *how many times* they changed. A file being rewritten
-eleven times is telling you something a file written once is not.
+**"Is it looping?"** — files ranked by *how many times* they changed. A file rewritten eleven times
+is telling you something a file written once is not.
 
-**"What did that cost?"** — token usage per task, read from the transcript, joined to the prompt.
+**"What did it cost?"** — token usage per task, read from the transcript and joined to the prompt.
 
 ---
 
 ## Why it works this way
 
-Two records exist of any agent session, and they disagree. The terminal tells you what the agent
-*said* it did. The filesystem knows what actually landed. The gap between them is exactly where the
-surprises live — the formatter that rewrote forty files, the test run that regenerated a fixture,
-the edit to a file nobody mentioned.
+Two records exist of any agent session, and they disagree. The terminal has what the agent said it
+did. The filesystem has what landed. The gap between them is where the surprises live — the
+formatter that rewrote forty files, the test run that regenerated a fixture, the edit to a file
+nobody mentioned.
 
 Nothing I tried closed that gap. A file watcher tells you a path changed but not who changed it. The
-agent's log tells you what it intended but not what happened. Git tells you the end state, after the
-fact, once it is too late to intervene. This sits in the middle: **the filesystem's record and the
-agent's record, joined on time, shown live.**
+agent's own log tells you what it intended but not what happened. Git tells you the end state, after
+the fact, once it is too late to intervene. This sits in the middle: **the filesystem's record and
+the agent's record, joined on time, shown live.**
 
 And it does that without asking a model anything. A lot of "observability" tooling answers questions
 by having an LLM summarise them — expensive, non-deterministic, and for *"which files just changed"*
-entirely unnecessary. The filesystem already knows. This is a joining and rendering problem, not an
-inference problem, and the whole project is an argument that treating it that way gets you a better
-answer for free.
+entirely unnecessary. The filesystem already knows. Supervision has to be something you can trust
+without a second opinion, which means it has to be deterministic. That constraint turned out to cost
+nothing and buy a lot.
 
 ## Hard constraints
 
