@@ -19,7 +19,7 @@ const AGAINST_KEY: Record<string, string> = {
 /** Unified diff text, coloured by leading character. No parser needed. */
 function UnifiedDiff ({ text }: { text: string }) {
   return (
-    <div className="bg-muted/40 max-h-80 overflow-y-auto rounded-md border font-mono text-xs">
+    <div className="bg-muted/40 rounded-md border font-mono text-xs">
       {text.split('\n').map((l, i) => (
         <div key={i} className={cn('px-2 break-words whitespace-pre-wrap',
           l.startsWith('+') && !l.startsWith('+++') && 'text-emerald-400',
@@ -137,7 +137,7 @@ export function DetailPanel ({ event, folder, onMute }: {
             <p className="text-muted-foreground text-xs uppercase">
               {t('detail.burstFiles', { n: burst.count })}
             </p>
-            <div className="bg-muted/40 max-h-72 space-y-0.5 overflow-auto rounded-md border p-2">
+            <div className="bg-muted/40 space-y-0.5 rounded-md border p-2">
               {burst.paths.map(p => <WrapPath key={p} path={p} className="block text-xs" />)}
             </div>
           </div>
@@ -163,7 +163,7 @@ export function DetailPanel ({ event, folder, onMute }: {
         {event.tool === 'Bash' && d.input?.command && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs uppercase">{t('detail.command')}</p>
-            <pre className="bg-muted/40 max-h-80 overflow-y-auto rounded-md border p-2 font-mono text-xs break-words whitespace-pre-wrap">{d.input.command}</pre>
+            <pre className="bg-muted/40 rounded-md border p-2 font-mono text-xs break-words whitespace-pre-wrap">{d.input.command}</pre>
           </div>
         )}
 

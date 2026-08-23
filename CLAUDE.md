@@ -153,6 +153,15 @@ are noise — ignore unknown types silently, the format changes without notice.
   later becomes a new JSON file rather than an archaeology pass through every screen — and the
   lint guard that enforces it is the same mechanism. Dates and numbers go through `Intl`.
 
+## Gotchas that cost time once
+
+- **index.html must not be cached.** It names the content-hashed bundle, so a cached copy
+  silently serves the previous build — changes appear to have no effect and you debug code that
+  is not running. Served `no-cache, must-revalidate`; hashed assets are `immutable`.
+- **shadcn components hardcode variant-scoped classes.** `SheetContent` carries
+  `data-[side=right]:sm:max-w-sm`; a plain `sm:max-w-2xl` loses to it and tailwind-merge will not
+  dedupe across different variants. Override using the same variant form.
+
 ## Testing
 
 One runnable check per piece of non-trivial logic — the smallest thing that fails if it breaks.

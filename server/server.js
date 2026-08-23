@@ -59,7 +59,13 @@ function serveStatic (url, res) {
   if (!file.startsWith(WEB)) return false
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(WEB, 'index.html')
   if (!existsSync(file)) return false
-  res.writeHead(200, { 'content-type': MIME[extname(file)] || 'application/octet-stream' })
+  // index.html must never be cached: it names the content-hashed bundle, and a
+  // stale copy silently serves the previous build. Hashed assets are immutable.
+  const isEntry = file.endsWith('index.html')
+  res.writeHead(200, {
+    'content-type': MIME[extname(file)] || 'application/octet-stream',
+    'cache-control': isEntry ? 'no-cache, must-revalidate' : 'public, max-age=31536000, immutable'
+  })
   res.end(readFileSync(file))
   return true
 }

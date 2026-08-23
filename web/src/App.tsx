@@ -106,7 +106,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         </TabsContent>
       </Tabs>
       <Sheet open={!!selected} onOpenChange={o => { if (!o) setSelected(null) }}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+        <SheetContent side="right"
+          className="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-2xl">
           <SheetHeader className="shrink-0 border-b px-4 py-3">
             <SheetTitle className="text-xs font-medium">{t('detail.title')}</SheetTitle>
           </SheetHeader>
