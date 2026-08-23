@@ -35,6 +35,14 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   const running = useMemo(() => runningPaths(events), [events])
   // hovering a feed row reveals that file in the heat tree — same route as `running`
   const [hoverPath, setHoverPath] = useState<string | null>(null)
+
+  // Name the open project in the tab, so several orchestrator tabs stay
+  // tellable apart. Restored on unmount rather than left behind.
+  useEffect(() => {
+    const previous = document.title
+    document.title = t('app.tabTitle', { name: folder.name })
+    return () => { document.title = previous }
+  }, [folder.name])
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {

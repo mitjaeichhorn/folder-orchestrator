@@ -169,5 +169,6 @@
   "feed.locate": "Show in project tree",
   "feed.callFiles": "{n} files",
   "feed.expandCall": "Show files from this call",
-  "feed.collapseCall": "Hide files from this call"
+  "feed.collapseCall": "Hide files from this call",
+  "app.tabTitle": "{name} \u00b7 Folder Orchestrator"
 }
