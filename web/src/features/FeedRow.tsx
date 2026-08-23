@@ -6,6 +6,7 @@ import { ToolLabel } from './ToolLabel'
 import { KindGlyph } from './KindGlyph'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
+import { isFree, FREE_ROW_CLASS } from './cost'
 import { gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import type { NestedEvent } from './collapse'
 import { t, fmtTime } from '@/i18n'
@@ -43,6 +44,7 @@ export function FeedRow ({
     <tr
       onClick={() => onSelect(e)}
       className={cn('group/row hover:bg-muted/50 cursor-pointer',
+        isFree(e) && FREE_ROW_CLASS,
         selected?.id === e.id && 'bg-muted')}>
 
       <td className="w-24 px-3 py-1 align-top">

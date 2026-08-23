@@ -153,6 +153,19 @@
   .orch-pulse { animation: none; opacity: 0.75; }
 }
 
+/* A row that cost no tokens: filesystem events and alerts, which never passed
+   through a model. A background *image*, so the row's own background colour
+   still shows between the stripes — hover and selection read through the hatch
+   instead of being covered by it. Toned with --muted rather than a literal
+   colour, so it follows the theme like everything else. */
+.orch-free {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in oklab, var(--muted) 55%, transparent) 0 3px,
+    transparent 3px 7px
+  );
+}
+
 /* A file currently being written. Deliberately shallower than .orch-pulse —
    this runs on a row you are reading, so it must register without flickering. */
 @keyframes orch-pulse-soft {
