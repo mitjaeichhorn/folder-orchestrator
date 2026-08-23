@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { matchEvent, ALL_KINDS, isImagePath } from '@shared/glob.js'
-import { GLYPH, TONE, rowText } from './event-view'
+import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE } from './authored'
 import { gaps, gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { Lightbox } from './Lightbox'
 import { ToolLabel } from './ToolLabel'
+import { KindGlyph } from './KindGlyph'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime } from '@/i18n'
@@ -25,12 +26,13 @@ const WINDOWS = [
 ]
 
 
-export function Feed ({ events, evicted, selected, onSelect, folderId }: {
+export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOpen = true }: {
   events: OrchEvent[]
   evicted: number
   selected: OrchEvent | null
   onSelect: (e: OrchEvent) => void
   folderId: string
+  filtersOpen?: boolean
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
@@ -85,12 +87,19 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-1 border-b px-4 py-1.5">
+        <Button size="sm" variant={view === 'timeline' ? 'secondary' : 'ghost'}
+          onClick={() => setView('timeline')}>{t('view.timeline')}</Button>
+        <Button size="sm" variant={view === 'tree' ? 'secondary' : 'ghost'}
+          onClick={() => setView('tree')}>{t('view.byTopic')}</Button>
+      </div>
+      {filtersOpen && (
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
         <ToggleGroup multiple size="sm" variant="outline" value={kinds} onValueChange={v => setKinds(v as string[])}>
           {ALL_KINDS.map((k: string) => (
             <ToggleGroupItem key={k} value={k} aria-label={t(`kind.${k}`)}>
-              <span className={cn('mr-1', TONE[k])}>{GLYPH[k]}</span>{t(`kind.${k}`)}
+              <KindGlyph kind={k} className="mr-1" />{t(`kind.${k}`)}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -106,18 +115,16 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
             {WINDOWS.map(w => <SelectItem key={w.key} value={String(w.ms)}>{t(w.key)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <div className="ml-auto flex gap-1">
-          <Button size="sm" variant={view === 'timeline' ? 'secondary' : 'ghost'}
-            onClick={() => setView('timeline')}>{t('view.timeline')}</Button>
-          <Button size="sm" variant={view === 'tree' ? 'secondary' : 'ghost'}
-            onClick={() => setView('tree')}>{t('view.byTopic')}</Button>
-        </div>
-        {!pinned && unseen > 0 && (
-          <Button size="sm" variant="secondary" onClick={jumpToLatest}>{t('feed.newEvents', { n: unseen })}</Button>
-        )}
       </div>
+      )}
+      {!pinned && unseen > 0 && (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
+          <Button size="sm" variant="secondary" className="pointer-events-auto shadow"
+            onClick={jumpToLatest}>{t('feed.newEvents', { n: unseen })}</Button>
+        </div>
+      )}
 
-      <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto pt-1">
         {view === 'tree'
           ? <Tree events={rows} selected={selected} onSelect={onSelect} folderId={folderId} onZoom={setZoom} />
           : rows.length === 0
@@ -158,7 +165,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
                         </div>
                       )}
                     </td>
-                    <td className={cn('w-6 py-1 align-top', TONE[e.kind])}>{GLYPH[e.kind]}</td>
+                    <td className="w-6 py-1 align-top"><KindGlyph kind={e.kind} /></td>
                     <td className="max-w-0 py-1 pr-2 align-top">
                       <div className="flex min-w-0 items-center gap-2" title={rowText(e)}>
                         <ToolLabel tool={e.tool} className="shrink-0" />

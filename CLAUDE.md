@@ -95,6 +95,15 @@ are noise — ignore unknown types silently, the format changes without notice.
 
 ## UI conventions
 
+- **Every column owns its own scroll.** A flex item defaults to `min-height: auto`, so it grows to
+  its content and the whole page scrolls instead. Every level from `SidebarInset` down needs
+  `min-h-0` + `overflow-hidden` for the inner scrollers to work. Verified by measuring
+  `scrollHeight` vs `clientHeight` per column, not by eye — the layout looked fine while the page
+  was scrolling as one.
+- **Claude-originated rows carry the Claude mark, not `⌘`.** `⌘` means "command key".
+- **The view switch is not a filter.** Timeline / By topic stays in the feed column; the
+  collapsible filter area holds the tabs, kind chips, path glob and time window.
+
 - Stock shadcn dark theme. No custom tokens, no bespoke components, no theme switcher work.
 - Components in use: `sidebar`, `tabs`, `table`, `badge`, `toggle-group`, `dialog`, `switch`,
   `resizable`, `scroll-area`, `sonner`.

@@ -27,7 +27,7 @@ export function Rules () {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b px-4 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
         <p className="text-sm">{t('rules.heading')}</p>
         <div className="ml-auto flex gap-2">
           <Input className="h-8 w-64" value={pattern} placeholder={t('rules.pattern')}

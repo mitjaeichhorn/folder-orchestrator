@@ -125,5 +125,6 @@
   "add.browseHint": "A folder dialog has opened \u2014 check behind this window if you do not see it.",
   "add.errorPickerPlatform": "The folder dialog is only available on macOS \u2014 type a path instead",
   "add.errorPickerUnavailable": "Could not open the folder dialog \u2014 type a path instead",
-  "add.errorPickerTimeout": "The folder dialog timed out"
+  "add.errorPickerTimeout": "The folder dialog timed out",
+  "filter.toggle": "Filter"
 }

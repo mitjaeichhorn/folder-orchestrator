@@ -135,7 +135,7 @@
   35%  { background-color: color-mix(in oklab, var(--color-lime-300) 40%, transparent); }
   100% { background-color: transparent; }
 }
-.orch-flash { animation: orch-flash 900ms ease-out; }
+.orch-flash { animation: orch-flash 2700ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   .orch-flash { animation: none; }

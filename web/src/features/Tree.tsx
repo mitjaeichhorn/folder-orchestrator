@@ -5,9 +5,10 @@ import { groupByTopic, NO_FILE, NO_TOPIC } from './group-by-file'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { isImagePath } from '@shared/glob.js'
-import { GLYPH, TONE, rowText } from './event-view'
+import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE } from './authored'
 import { ToolLabel } from './ToolLabel'
+import { KindGlyph } from './KindGlyph'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -86,7 +87,7 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
                       <span className="text-muted-foreground w-16 shrink-0 font-mono text-xs tabular-nums">
                         {fmtTime(e.ts)}
                       </span>
-                      <span className={cn('w-4 shrink-0', TONE[e.kind])}>{GLYPH[e.kind]}</span>
+                      <span className="w-4 shrink-0"><KindGlyph kind={e.kind} /></span>
                       {e.tool && <ToolLabel tool={e.tool} className="shrink-0 whitespace-nowrap" />}
                       <span className={cn('min-w-0 flex-1 truncate text-xs',
                         isAuthored(e) ? AUTHORED_TONE : 'font-mono')} title={rowText(e)}>

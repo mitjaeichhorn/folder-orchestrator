@@ -41,7 +41,7 @@ export function Sessions ({ folderId, live, onPickPath }: {
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="w-64 shrink-0 border-r">
+      <div className="w-64 min-h-0 shrink-0 overflow-hidden border-r">
         <ScrollArea className="h-full">
           {(stored.length ? stored.map(s => s.id) : [...groups.keys()]).map(id => {
             const m = stored.find(s => s.id === id)
@@ -61,7 +61,7 @@ export function Sessions ({ folderId, live, onPickPath }: {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex items-center gap-3 border-b px-4 py-2 text-sm">
+        <div className="flex shrink-0 items-center gap-3 border-b px-4 py-2 text-sm">
           <span className="font-mono">{current?.slice(0, 8)}</span>
           <Badge variant={running ? 'default' : 'outline'}>
             {running ? t('session.running') : t('session.ended')}

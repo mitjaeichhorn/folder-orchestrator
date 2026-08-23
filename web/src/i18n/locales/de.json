@@ -60,5 +60,6 @@
   "detail.copiedFile": "Dateipfad kopiert",
   "detail.copiedFolder": "Ordnerpfad kopiert",
   "add.browse": "Durchsuchen…",
-  "add.browsing": "Wird gewählt…"
+  "add.browsing": "Wird gewählt…",
+  "filter.toggle": "Filter"
 }

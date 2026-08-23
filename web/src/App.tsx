@@ -25,6 +25,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   const { events, status, conn, attempt, evicted, alerts, clearAlerts } = useStream()
   const [selected, setSelected] = useState<OrchEvent | null>(null)
   const [heatOpen, setHeatOpen] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(true)
 
   useEffect(() => {
     if (alerts.length === 0) return
@@ -42,8 +43,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   }, [folder, onFolderChange])
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b px-4 py-2">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2">
         <SidebarTrigger className="-ml-1" />
         <p className="truncate font-mono text-sm">{folder.path}</p>
         <div className="ml-auto flex items-center gap-2 text-xs">
@@ -59,6 +60,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
               · {t('folder.files', { n: fmtNum(status.fileCount) })} · {t('sidebar.eventsPerMin', { n: status.eventsPerMin })}
             </span>
           )}
+          <Button size="sm" variant={filtersOpen ? 'secondary' : 'ghost'}
+            onClick={() => setFiltersOpen(v => !v)}>{t('filter.toggle')}</Button>
           <Button size="sm" variant={heatOpen ? 'secondary' : 'ghost'}
             onClick={() => setHeatOpen(v => !v)}>{t('heat.toggle')}</Button>
           <Button size="sm" variant="outline" onClick={async () => {
@@ -69,36 +72,39 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-      <Tabs defaultValue="activity" className="flex min-h-0 min-w-0 flex-1 flex-col gap-0">
-        <TabsList className="mx-4 my-2 w-fit">
-          <TabsTrigger value="activity">{t('tab.activity')}</TabsTrigger>
-          <TabsTrigger value="session">{t('tab.session')}</TabsTrigger>
-          <TabsTrigger value="rules">{t('tab.rules')}</TabsTrigger>
-        </TabsList>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <Tabs defaultValue="activity" className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
+        {filtersOpen && (
+          <TabsList className="mx-4 my-2 w-fit shrink-0">
+            <TabsTrigger value="activity">{t('tab.activity')}</TabsTrigger>
+            <TabsTrigger value="session">{t('tab.session')}</TabsTrigger>
+            <TabsTrigger value="rules">{t('tab.rules')}</TabsTrigger>
+          </TabsList>
+        )}
 
-        <TabsContent value="activity" className="min-h-0 flex-1">
+        <TabsContent value="activity" className="min-h-0 flex-1 overflow-hidden">
           <ResizablePanelGroup orientation="horizontal" className="h-full">
-            <ResizablePanel defaultSize="62" minSize="30">
-              <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected} folderId={folder.id} />
+            <ResizablePanel defaultSize="62" minSize="30" className="min-h-0 overflow-hidden">
+              <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
+                folderId={folder.id} filtersOpen={filtersOpen} />
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel defaultSize="38" minSize="20">
+            <ResizablePanel defaultSize="38" minSize="20" className="min-h-0 overflow-hidden">
               <DetailPanel event={selected} folder={folder} onMute={mute} />
             </ResizablePanel>
           </ResizablePanelGroup>
         </TabsContent>
 
-        <TabsContent value="session" className="min-h-0 flex-1">
+        <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">
           <Sessions folderId={folder.id} live={events} onPickPath={() => {}} />
         </TabsContent>
 
-        <TabsContent value="rules" className="min-h-0 flex-1">
+        <TabsContent value="rules" className="min-h-0 flex-1 overflow-hidden">
           <Rules />
         </TabsContent>
       </Tabs>
       {heatOpen && (
-        <div className="w-64 shrink-0">
+        <div className="w-64 min-h-0 shrink-0 overflow-hidden">
           <HeatTree folderId={folder.id} events={events} />
         </div>
       )}

@@ -57,7 +57,7 @@ export function DetailPanel ({ event, folder, onMute }: {
   const abs = event.path ? `${folder.path}/${event.path}` : null
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full min-h-0">
       <div className="space-y-4 p-4">
         <div>
           <p className="font-mono text-sm break-all">{event.path ?? t(`kind.${event.kind}`)}</p>
