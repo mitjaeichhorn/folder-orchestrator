@@ -64,6 +64,10 @@ export const api = {
     if (opts.session) q.set('session', opts.session)
     return req<OrchEvent[]>(`/api/events?${q}`)
   },
+  diff: (folderId: string, path: string) => req<{
+    available: boolean; reason?: string; source?: string
+    against?: 'worktree' | 'head' | 'untracked'; truncated?: boolean; text?: string
+  }>(`/api/diff?folder=${encodeURIComponent(folderId)}&path=${encodeURIComponent(path)}`),
   usage: (folderId: string) => req<TopicUsage[]>(`/api/usage?folder=${folderId}`),
   sessions: (folderId: string) => req<Session[]>(`/api/sessions?folder=${folderId}`),
   rules: () => req<Rule[]>('/api/rules'),

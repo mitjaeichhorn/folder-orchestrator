@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,27 @@ import { Thumb } from './Thumb'
 import { Lightbox } from './Lightbox'
 import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
+import { cn } from '@/lib/utils'
+
+const AGAINST_KEY: Record<string, string> = {
+  worktree: 'detail.againstWorktree', head: 'detail.againstHead', untracked: 'detail.againstUntracked'
+}
+
+/** Unified diff text, coloured by leading character. No parser needed. */
+function UnifiedDiff ({ text }: { text: string }) {
+  return (
+    <div className="bg-muted/40 max-h-80 overflow-auto rounded-md border font-mono text-xs">
+      {text.split('\n').map((l, i) => (
+        <div key={i} className={cn('whitespace-pre px-2',
+          l.startsWith('+') && !l.startsWith('+++') && 'text-emerald-400',
+          l.startsWith('-') && !l.startsWith('---') && 'text-rose-400',
+          l.startsWith('@@') && 'text-sky-400',
+          (l.startsWith('diff ') || l.startsWith('index ') || l.startsWith('+++') || l.startsWith('---')) && 'text-muted-foreground/50'
+        )}>{l || ' '}</div>
+      ))}
+    </div>
+  )
+}
 
 function Diff ({ oldS, newS }: { oldS?: { text?: string; truncated?: boolean }; newS?: { text?: string; truncated?: boolean } }) {
   if (!oldS && !newS) return <p className="text-muted-foreground text-sm">{t('detail.noDiff')}</p>
@@ -38,6 +59,22 @@ export function DetailPanel ({ event, folder, onMute }: {
   // Its own lightbox: DetailPanel is a sibling of Feed, not a child, so there is
   // no shared state to lift — and two overlays can never both be open anyway.
   const [zoom, setZoom] = useState<string | null>(null)
+  const [gitDiff, setGitDiff] = useState<Awaited<ReturnType<typeof api.diff>> | null>(null)
+
+  // The Edit tool carries its own before/after. Everything else — Bash, a
+  // formatter, the operator's editor — carries nothing, so ask git.
+  const path = event?.path ?? null
+  const needsGit = !!path && event?.kind !== 'alert' &&
+    !(event?.kind === 'tool' && (event.tool === 'Edit' || event.tool === 'MultiEdit'))
+  useEffect(() => {
+    if (!needsGit || !path) { setGitDiff(null); return }
+    let live = true
+    setGitDiff(null)
+    api.diff(folder.id, path)
+      .then(d => { if (live) setGitDiff(d) })
+      .catch(() => { if (live) setGitDiff({ available: false, reason: 'ERROR' }) })
+    return () => { live = false }
+  }, [folder.id, path, needsGit])
 
   // navigator.clipboard needs a secure context; localhost qualifies, but a
   // failure must say so rather than silently copying nothing.
@@ -102,8 +139,27 @@ export function DetailPanel ({ event, folder, onMute }: {
           </div>
         )}
 
-        {!isEdit && event.tool !== 'Bash' && event.kind !== 'alert' && (
-          <p className="text-muted-foreground text-sm">{t('detail.noDiff')}</p>
+        {!isEdit && event.kind !== 'alert' && event.path && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs uppercase">
+              {t('detail.diff')}
+              {gitDiff?.available && gitDiff.against && (
+                <span className="ml-2 normal-case">{t(AGAINST_KEY[gitDiff.against] ?? 'detail.diff')}</span>
+              )}
+            </p>
+            {gitDiff === null
+              ? <p className="text-muted-foreground text-sm">{t('detail.diffLoading')}</p>
+              : gitDiff.available && gitDiff.text
+                ? <>
+                    <UnifiedDiff text={gitDiff.text} />
+                    {gitDiff.truncated && <p className="text-muted-foreground text-xs">{t('feed.truncated')}</p>}
+                  </>
+                : <p className="text-muted-foreground text-sm">
+                    {t(gitDiff.reason === 'NOT_A_REPO' ? 'detail.noGit'
+                      : gitDiff.reason === 'NO_CHANGES' ? 'detail.noChanges'
+                      : 'detail.noDiff')}
+                  </p>}
+          </div>
         )}
 
         {abs && (

@@ -146,5 +146,11 @@
   "heat.activeOnly": "Active only",
   "heat.activeOnlyHint": "Show only branches that have changed in this session",
   "heat.ofTotal": "of {n}",
-  "heat.noneActive": "Nothing has changed yet \u2014 every branch is hidden"
+  "heat.noneActive": "Nothing has changed yet \u2014 every branch is hidden",
+  "detail.diffLoading": "Reading diff\u2026",
+  "detail.noGit": "No diff \u2014 this folder is not a git repository",
+  "detail.noChanges": "No uncommitted changes to this file",
+  "detail.againstWorktree": "uncommitted changes",
+  "detail.againstHead": "vs HEAD",
+  "detail.againstUntracked": "new file, not yet tracked"
 }

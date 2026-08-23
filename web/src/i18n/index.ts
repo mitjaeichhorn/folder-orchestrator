@@ -1,16 +1,15 @@
 import { config } from '@/config'
 import en from './locales/en.json'
-import de from './locales/de.json'
 
+// English only. The t() indirection stays: it is what keeps copy out of
+// components, so adding a locale later is a new JSON file rather than an
+// archaeology pass through every screen. config.locale still drives Intl.
 type Dict = Record<string, string>
-const BUNDLES: Record<string, Dict> = { en, de: { ...de } }
-const FALLBACK = 'en'
+const BUNDLE: Dict = en
 const missing = new Set<string>()
 
-const dict = (): Dict => BUNDLES[config.locale] ?? BUNDLES[FALLBACK]
-
 export function t (key: string, vars?: Record<string, string | number>): string {
-  let s = dict()[key] ?? BUNDLES[FALLBACK][key]
+  let s = BUNDLE[key]
   if (s === undefined) {
     // Visible and greppable. Never fall back to a hardcoded English literal —
     // that would hide the missing key instead of surfacing it.

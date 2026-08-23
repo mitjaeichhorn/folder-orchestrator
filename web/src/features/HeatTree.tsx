@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
 import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders } from './prune-tree'
+import { heatColor, heatOpacity } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
 import type { OrchEvent } from '@/lib/api'
@@ -25,15 +26,7 @@ interface TreeResponse { nodes: number; truncated: boolean; children: Node[] }
 const countNodes = (nodes: Node[]): number =>
   nodes.reduce((n, x) => n + 1 + (x.c ? countNodes(x.c) : 0), 0)
 
-/** Heat drives opacity and a warm tint; both scale together so hot reads as hot. */
-function heatStyle (h: number) {
-  return {
-    opacity: 0.28 + h * 0.72,
-    color: h > 0.02
-      ? `color-mix(in oklab, var(--color-amber-300) ${Math.round(h * 100)}%, var(--color-muted-foreground))`
-      : undefined
-  }
-}
+const heatStyle = (h: number) => ({ opacity: heatOpacity(h), color: heatColor(h) })
 
 function Branch ({ node, heat, depth, open, toggle }: {
   node: Node

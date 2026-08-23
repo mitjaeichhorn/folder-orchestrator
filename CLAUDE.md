@@ -57,8 +57,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
 - **Attribution is a join, not a fact.** The filesystem does not say who wrote a file. A row is
   labelled `claude` only when a transcript tool call matches the same path within a short time
   window. When there's no match, say `external` — never guess.
-- **Diffs are free, so don't compute them.** `Edit` tool calls in the transcript carry
-  `old_string` / `new_string`. Use those. No git, no snapshotting, no model.
+- **Diffs come from two sources, and most files need the second one.** `Edit`/`MultiEdit` tool
+  calls carry `old_string` / `new_string` — free, exact, scoped to that one call. Everything
+  else (Bash, a formatter, the operator's editor) carries nothing, and that is the majority:
+  `/api/diff` asks git instead. This is working-tree-vs-HEAD, **not** the diff of one event, so
+  the panel labels which. Claude Code also keeps per-session backups under
+  `~/.claude/file-history/<sessionId>/<hash>@vN` (named in `file-history-delta` records) — a
+  third source if a project is ever not a git repo.
 - **Only ~11% of Claude tool calls name a file.** `Edit`/`Write`/`Read`/`NotebookEdit` carry
   `file_path`; `Bash` and MCP tools carry none, and `Bash` is by far the most common. Measured,
   not guessed. Any file-centric view must therefore have an explicit home for pathless actions —
@@ -89,6 +94,9 @@ Keep it at this file count. New concerns go into an existing file until it genui
   is membership in the stamp map, independent of how far it has dimmed. Because every ancestor of
   a touched path is stamped, filtering on it preserves the whole route to a changed file — no
   descendant search needed.
+- **The heat ramp is white -> yellow -> orange -> muted grey**, interpolated in OKLab so the
+  midpoints stay even instead of going muddy the way sRGB blending does. Pure white means the
+  path was touched by the most recent event; the grey floor means untouched.
 - **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
   branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
   rather than "how long ago was this".
@@ -126,8 +134,10 @@ are noise — ignore unknown types silently, the format changes without notice.
 - Stock shadcn dark theme. No custom tokens, no bespoke components, no theme switcher work.
 - Components in use: `sidebar`, `tabs`, `table`, `badge`, `toggle-group`, `dialog`, `switch`,
   `resizable`, `scroll-area`, `sonner`.
-- **No hardcoded user-facing strings.** Every label, empty state, error and timestamp format goes
-  through the translation layer, locale read from config. Applies to the default language too.
+- **English only, but strings still go through `t()`.** There is one bundle and no plan for a
+  second. The indirection stays because it is what keeps copy out of components — adding a locale
+  later becomes a new JSON file rather than an archaeology pass through every screen — and the
+  lint guard that enforces it is the same mechanism. Dates and numbers go through `Intl`.
 
 ## Testing
 

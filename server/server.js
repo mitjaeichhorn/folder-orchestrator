@@ -9,6 +9,7 @@ import * as transcripts from './transcripts.js'
 import * as rules from './rules.js'
 import { serveImage } from './serve-file.js'
 import { buildTree } from './tree.js'
+import { fileDiff } from './diff.js'
 import { pickFolder } from './pick-folder.js'
 import { log } from './log.js'
 
@@ -144,6 +145,12 @@ const server = createServer(async (req, res) => {
     } else if (p === '/api/pick-folder' && req.method === 'POST') {
       const r = await pickFolder()
       status = json(res, r.error ? 501 : 200, r)
+
+    } else if (p === '/api/diff' && req.method === 'GET') {
+      const folder = db.getFolder(database, url.searchParams.get('folder'))
+      const rel = url.searchParams.get('path')
+      if (!folder || !rel) status = json(res, 404, { code: 'NOT_FOUND' })
+      else status = json(res, 200, await fileDiff(folder, rel))
 
     } else if (p === '/api/tree' && req.method === 'GET') {
       const folder = db.getFolder(database, url.searchParams.get('folder'))

@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
 import { pruneToActive, activeFolders } from '../src/features/prune-tree.ts'
+import { heatColor, heatOpacity } from '../src/features/heat-color.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
   assert.deepEqual(ancestors('a/b/c.ts'), ['a', 'a/b', 'a/b/c.ts'])
@@ -159,4 +160,37 @@ test('hasHeat is about being touched at all, not about being recent', () => {
   for (let i = 0; i < HEAT_SPAN * 2; i++) s = touch(s, `other${i}.ts`)
   assert.equal(heatOf(s, 'a.ts'), MIN_HEAT, 'fully dimmed')
   assert.equal(hasHeat(s, 'a.ts'), true, 'but still active — it did change in this session')
+})
+
+// --- heat ramp -----------------------------------------------------------
+test('the hottest branch is white and the coldest is the muted token', () => {
+  assert.equal(heatColor(1), '#ffffff')
+  assert.equal(heatColor(0), 'var(--color-muted-foreground)')
+})
+
+test('the ramp passes through yellow then orange on the way down', () => {
+  assert.equal(heatColor(0.7), '#fde047', 'yellow stop')
+  assert.equal(heatColor(0.4), '#fb923c', 'orange stop')
+  assert.match(heatColor(0.85), /#ffffff.*#fde047/, 'white to yellow')
+  assert.match(heatColor(0.55), /#fde047.*#fb923c/, 'yellow to orange')
+  assert.match(heatColor(0.2), /#fb923c.*muted-foreground/, 'orange fading to grey')
+})
+
+test('every mix is a valid oklab color-mix', () => {
+  for (let h = 0; h <= 1.0001; h += 0.05) {
+    const c = heatColor(h)
+    assert.ok(c.startsWith('#') || c.startsWith('var(') || /^color-mix\(in oklab, .+ \d+%, .+\)$/.test(c), `${h}: ${c}`)
+  }
+})
+
+test('out-of-range and non-finite heat clamps instead of producing garbage', () => {
+  assert.equal(heatColor(5), '#ffffff')
+  assert.equal(heatColor(-1), 'var(--color-muted-foreground)')
+  assert.equal(heatColor(NaN), 'var(--color-muted-foreground)')
+})
+
+test('opacity rises with heat and never reaches invisible', () => {
+  assert.ok(heatOpacity(0) >= 0.4, 'cold entries stay readable')
+  assert.equal(heatOpacity(1), 1)
+  assert.ok(heatOpacity(0.5) > heatOpacity(0.1))
 })
