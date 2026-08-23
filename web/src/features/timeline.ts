@@ -54,3 +54,42 @@ export function runningFor (startTs: number, now: number): number {
 
 /** True once a running call has passed the cap — the UI should stop pretending. */
 export const isStalled = (startTs: number, now: number) => now - startTs > RUNNING_CAP_MS
+
+type MinEvent = { kind?: string; path?: string | null; ts?: number; detail?: any }
+
+/** When the oldest still-running tool call started, or null if nothing is running. */
+export function runningSince (events: MinEvent[]): number | null {
+  let earliest: number | null = null
+  for (const e of events) {
+    if (!isRunning(e) || typeof e.ts !== 'number') continue
+    if (earliest === null || e.ts < earliest) earliest = e.ts
+  }
+  return earliest
+}
+
+/**
+ * Files to mark as "being worked on right now". Two sources, both factual:
+ *
+ *  1. A path an in-flight tool call named outright (Edit, Write, Read).
+ *  2. A file the watcher saw change while a tool call was in flight.
+ *
+ * The second exists because the first is almost never visible: the tools that
+ * name a file finish in milliseconds, while the long ones — Bash, MCP — name no
+ * file at all. So a build writing fifty files would otherwise pulse nothing.
+ *
+ * Note what (2) claims: the change happened DURING a running command, not that
+ * the command caused it. Co-occurrence, not causation — the same reason the
+ * attribution join refuses to label an event `claude` without a path match.
+ */
+export function runningPaths (events: MinEvent[]): Set<string> {
+  const out = new Set<string>()
+  const since = runningSince(events)
+  for (const e of events) {
+    if (isRunning(e) && e.path) out.add(e.path)
+    if (since !== null && e.path && typeof e.ts === 'number' && e.ts >= since &&
+        e.kind !== 'tool' && e.kind !== 'prompt' && e.kind !== 'alert') {
+      out.add(e.path)
+    }
+  }
+  return out
+}

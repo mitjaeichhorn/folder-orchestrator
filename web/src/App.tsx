@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Toaster, toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import { Sessions } from '@/features/Sessions'
 import { Rules } from '@/features/Rules'
 import { Usage } from '@/features/Usage'
 import { HeatTree } from '@/features/HeatTree'
+import { runningPaths } from '@/features/timeline'
 import { api, type Folder, type OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   const { events, status, conn, attempt, evicted, alerts, clearAlerts } = useStream()
   const [selected, setSelected] = useState<OrchEvent | null>(null)
   const [heatOpen, setHeatOpen] = useState(true)
+  // files a still-running tool call named — pulsed in both the feed and the tree
+  const running = useMemo(() => runningPaths(events), [events])
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
@@ -111,7 +114,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
       </Tabs>
       {heatOpen && (
         <div className="w-64 min-h-0 shrink-0 overflow-hidden">
-          <HeatTree folderId={folder.id} events={events} />
+          <HeatTree folderId={folder.id} events={events} running={running} />
         </div>
       )}
       </div>

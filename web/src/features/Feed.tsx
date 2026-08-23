@@ -171,7 +171,9 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                         </div>
                       )}
                     </td>
-                    <td className="w-6 py-1 align-top"><KindGlyph kind={e.kind} /></td>
+                    <td className="w-6 py-1 align-top">
+                      <KindGlyph kind={e.kind} pulse={isRunning(e)} />
+                    </td>
                     <td className="max-w-0 py-1 pr-2 align-top">
                       <div className="flex min-w-0 items-center gap-2"
                         title={e.burst ? e.burst.paths.join('\n') : rowText(e)}>

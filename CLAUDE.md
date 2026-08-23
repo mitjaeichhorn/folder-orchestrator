@@ -97,6 +97,12 @@ Keep it at this file count. New concerns go into an existing file until it genui
 - **The heat ramp is white -> yellow -> orange -> muted grey**, interpolated in OKLab so the
   midpoints stay even instead of going muddy the way sRGB blending does. Pure white means the
   path was touched by the most recent event; the grey floor means untouched.
+- **"Being worked on right now" has two sources, and the obvious one is nearly useless.** A tool
+  call that names a file (`Edit`/`Write`/`Read`) finishes in milliseconds, while the calls that
+  run long (`Bash`, MCP) name no file — so pulsing only named paths would pulse almost nothing.
+  `runningPaths` therefore also includes files the watcher saw change *while* a call was in
+  flight. Note what that claims: the change happened during a running command, not that the
+  command caused it. Co-occurrence, not causation — the same restraint the attribution join uses.
 - **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
   branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
   rather than "how long ago was this".

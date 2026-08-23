@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { gapPx, gaps, fmtGap, isCapped, isRunning, runningFor, isStalled, MAX_GAP_PX, PX_PER_SECOND, CAP_SECONDS, RUNNING_CAP_MS } from '../src/features/timeline.ts'
+import { gapPx, gaps, fmtGap, isCapped, isRunning, runningFor, isStalled, runningPaths, runningSince, MAX_GAP_PX, PX_PER_SECOND, CAP_SECONDS, RUNNING_CAP_MS } from '../src/features/timeline.ts'
 
 test('one second of elapsed time is one unit of dash', () => {
   assert.equal(gapPx(1000), PX_PER_SECOND)
@@ -64,4 +64,74 @@ test('elapsed time grows with the clock and is bounded', () => {
 test('a call past the cap is reported as stalled', () => {
   assert.equal(isStalled(0, RUNNING_CAP_MS - 1), false)
   assert.equal(isStalled(0, RUNNING_CAP_MS + 1), true)
+})
+
+// --- running paths -------------------------------------------------------
+test('only in-flight tool calls that named a file contribute a path', () => {
+  const set = runningPaths([
+    { kind: 'tool', path: 'a.ts', detail: { state: 'running' } },
+    { kind: 'tool', path: 'b.ts', detail: { state: 'done', durationMs: 5 } },
+    { kind: 'tool', path: null, detail: { state: 'running' } },
+    { kind: 'modified', path: 'c.ts', detail: { state: 'running' } }
+  ])
+  assert.deepEqual([...set], ['a.ts'])
+})
+
+test('a Bash call in flight pulses nothing in the tree — it named no file', () => {
+  assert.equal(runningPaths([{ kind: 'tool', path: null, detail: { state: 'running' } }]).size, 0)
+})
+
+test('the same file running twice appears once', () => {
+  const set = runningPaths([
+    { kind: 'tool', path: 'a.ts', detail: { state: 'running' } },
+    { kind: 'tool', path: 'a.ts', detail: { state: 'running' } }
+  ])
+  assert.equal(set.size, 1)
+})
+
+test('an empty or finished list yields an empty set, never undefined', () => {
+  assert.equal(runningPaths([]).size, 0)
+  assert.equal(runningPaths([{ kind: 'tool', path: 'a.ts', detail: {} }]).size, 0)
+})
+
+test('files changed while a command is in flight are marked as active work', () => {
+  const set = runningPaths([
+    { kind: 'tool', path: null, ts: 1000, detail: { state: 'running' } },
+    { kind: 'modified', path: 'built.js', ts: 1500 },
+    { kind: 'created', path: 'also.js', ts: 2000 }
+  ])
+  assert.deepEqual([...set].sort(), ['also.js', 'built.js'])
+})
+
+test('files changed BEFORE the running command started are not marked', () => {
+  const set = runningPaths([
+    { kind: 'tool', path: null, ts: 5000, detail: { state: 'running' } },
+    { kind: 'modified', path: 'earlier.js', ts: 4000 }
+  ])
+  assert.equal(set.size, 0, 'a change that predates the command is not part of it')
+})
+
+test('with nothing running, no file is marked however recent', () => {
+  const set = runningPaths([
+    { kind: 'tool', path: null, ts: 5000, detail: { state: 'done', durationMs: 1 } },
+    { kind: 'modified', path: 'recent.js', ts: 9000 }
+  ])
+  assert.equal(set.size, 0)
+})
+
+test('the window starts at the OLDEST in-flight call, not the newest', () => {
+  assert.equal(runningSince([
+    { kind: 'tool', path: null, ts: 5000, detail: { state: 'running' } },
+    { kind: 'tool', path: null, ts: 2000, detail: { state: 'running' } }
+  ]), 2000)
+  assert.equal(runningSince([{ kind: 'tool', path: null, ts: 1, detail: { state: 'done' } }]), null)
+})
+
+test('alerts and prompts are never marked as files being worked on', () => {
+  const set = runningPaths([
+    { kind: 'tool', path: null, ts: 1000, detail: { state: 'running' } },
+    { kind: 'alert', path: '.env', ts: 1500 },
+    { kind: 'prompt', path: null, ts: 1500 }
+  ])
+  assert.equal(set.size, 0)
 })

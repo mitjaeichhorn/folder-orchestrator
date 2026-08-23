@@ -140,3 +140,15 @@
 @media (prefers-reduced-motion: reduce) {
   .orch-flash { animation: none; }
 }
+
+/* Work in progress. One keyframe shared by the row glyph and the heat-tree
+   entry, so "the same way" is literal rather than two look-alike animations. */
+@keyframes orch-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+.orch-pulse { animation: orch-pulse 1.1s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orch-pulse { animation: none; opacity: 0.75; }
+}

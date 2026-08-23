@@ -28,12 +28,13 @@ const countNodes = (nodes: Node[]): number =>
 
 const heatStyle = (h: number) => ({ opacity: heatOpacity(h), color: heatColor(h) })
 
-function Branch ({ node, heat, depth, closed, toggle }: {
+function Branch ({ node, heat, depth, closed, toggle, running }: {
   node: Node
   heat: HeatState
   depth: number
   closed: Set<string>
   toggle: (p: string) => void
+  running?: Set<string>
 }) {
   const h = heatOf(heat, node.p)
   const isOpen = !closed.has(node.p)
@@ -42,11 +43,13 @@ function Branch ({ node, heat, depth, closed, toggle }: {
   // the CSS animation replay — re-rendering the same element would not.
   const flash = justChanged(heat, node.p)
   const flashKey = flash ? stampOf(heat, node.p) : 'idle'
+  const pulsing = running?.has(node.p) ?? false
 
   if (node.d === 0) {
     return (
       <div key={flashKey}
-        className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight', flash && 'orch-flash')}
+        className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight',
+          flash && 'orch-flash', pulsing && 'orch-pulse')}
         style={style} title={node.p}>
         {node.n}
       </div>
@@ -56,7 +59,7 @@ function Branch ({ node, heat, depth, closed, toggle }: {
     <div>
       <button key={flashKey} onClick={() => toggle(node.p)}
         className={cn('hover:bg-muted/40 flex w-full items-center gap-0.5 truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
-          flash && 'orch-flash')}
+          flash && 'orch-flash', pulsing && 'orch-pulse')}
         style={style} title={node.p}>
         {isOpen
           ? <ChevronDown className="size-2.5 shrink-0" />
@@ -64,13 +67,17 @@ function Branch ({ node, heat, depth, closed, toggle }: {
         <span className="truncate">{node.n}</span>
       </button>
       {isOpen && node.c?.map(c => (
-        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle} />
+        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle} running={running} />
       ))}
     </div>
   )
 }
 
-export function HeatTree ({ folderId, events }: { folderId: string; events: OrchEvent[] }) {
+export function HeatTree ({ folderId, events, running }: {
+  folderId: string
+  events: OrchEvent[]
+  running?: Set<string>
+}) {
   const [tree, setTree] = useState<TreeResponse | null>(null)
   const [closed, setClosed] = useState<Set<string>>(new Set())
   const [error, setError] = useState(false)
@@ -156,7 +163,7 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
             : (
               <>
                 {roots.map(n => (
-                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle} />
+                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle} running={running} />
                 ))}
                 {activeOnly && roots.length === 0 && (
                   <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>
