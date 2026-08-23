@@ -13,12 +13,13 @@ pipeline. `kind` discriminates.
   id:         Number,   // sqlite rowid
   folderId:   String,   // stable id of the watched folder
   ts:         Number,   // epoch ms, from the source (fs stat / transcript timestamp)
-  kind:       'created' | 'modified' | 'deleted' | 'renamed' | 'tool' | 'prompt',
+  kind:       'created' | 'modified' | 'deleted' | 'renamed' | 'tool' | 'prompt' | 'alert',
   path:       String | null,   // POSIX, relative to folder root. null for 'prompt'
-  actor:      'claude' | 'external' | 'unknown',
+  actor:      'claude' | 'during-claude' | 'external' | 'unknown',
   sessionId:  String | null,   // Claude session uuid when known
   tool:       String | null,   // 'Edit' | 'Bash' | ... for kind === 'tool'
   topic:      String | null,   // the operator's prompt, verbatim — see below
+  duringToolEventId: Number | null,  // events.id of the containing tool call — see invariant 6
   detail:     Object           // free-form, see below. Stored as JSON text.
 }
 ```
@@ -56,6 +57,8 @@ CREATE TABLE events (
   actor      TEXT NOT NULL DEFAULT 'unknown',
   session_id TEXT,
   tool       TEXT,
+  topic      TEXT,
+  during_tool_event_id INTEGER,   -- nullable, no FK: retention may delete the parent
   detail     TEXT NOT NULL DEFAULT '{}'
 );
 
@@ -80,7 +83,7 @@ SSE is the **only** push channel. Named event types on the stream:
 | frame | payload | emitted by |
 |---|---|---|
 | `append` | one `Event` | every producer, via `emit()` |
-| `patch`  | `{id, ...changedFields}` — an existing Event was relabelled | Epic 02 attribution join |
+| `patch`  | `{id, ...changedFields}` — an existing Event was relabelled or grouped | attribution join / containment sweep |
 | `status` | `{folderId, watching, fileCount, eventsPerMin}`, every 2s while subscribed | Epic 01 |
 | `alert`  | `{ruleId, event, actions}` | Epic 06 rule matcher |
 | `ping`   | comment keepalive, every 25s | spine |
@@ -99,10 +102,15 @@ Rules:
 - A session with no `last-prompt` seen yet has `topic: null`. Never borrow another session's.
 - `topic` is a column, not a `detail` field, because it is a first-class grouping key.
 
-The display hierarchy is therefore **topic → file → actions**. Note that only ~11% of Claude
-tool calls declare a `file_path` (`Edit`/`Write`/`Read`/`NotebookEdit`); `Bash` and MCP tools
-declare none. Those group under the topic directly, in an explicit no-file bucket — they are
-never assigned to whichever file happened to change nearby.
+The display hierarchy is therefore **topic → file → actions**. Measured on real sessions, only
+**7%** of Claude tool calls declare a `file_path` (`Edit`/`Write`/`Read`/`NotebookEdit`); `Bash`
+is 93% of traffic and declares none. Those group under the topic directly, in an explicit
+no-file bucket — they are never assigned to whichever file happened to change nearby.
+
+The reverse direction is what invariant 6 permits: a filesystem change may nest under the tool
+call whose **measured interval contained it**. That is a claim about when, not about who, and
+carries `actor: 'during-claude'` so the two can never be confused. Where containment is
+ambiguous or unknown, the change stays a top-level row.
 
 ## Invariants
 
@@ -111,9 +119,36 @@ never assigned to whichever file happened to change nearby.
    in the UI is a bug.
 3. **Attribution is a join, never a guess.** `actor: 'claude'` requires a matching transcript
    tool call (same absolute path, within the correlation window). Otherwise `external`. When the
-   path was never seen by the watcher, `unknown`.
+   path was never seen by the watcher, `unknown`. A change that merely co-occurred with a running
+   tool call, without being named by it, is `during-claude` — not `claude`. See invariant 6.
 4. **Unknown transcript record types are skipped silently.** The JSONL format changes without
    notice; an unrecognised `type` must never throw.
 5. **No LLM.** No module in this repo calls an inference API.
-6. **An action belongs to a file only if it names that file.** A filesystem event's own path, or
-   a tool call whose input declared `file_path`. Timing proximity is never a parent.
+6. **Attribution and grouping are different claims. Never conflate them.**
+
+   *Attribution* answers **"who caused this?"** It is a join, never a guess (invariant 3).
+   `actor: 'claude'` requires a transcript tool call naming the same absolute path within the
+   correlation window. Nothing else may ever produce it.
+
+   *Grouping* answers **"what else was happening at the same time?"** It may use **containment**,
+   and only containment: a filesystem event whose timestamp falls inside a tool call's
+   **measured** `[start, start + durationMs]` interval — plus a fixed grace, both endpoints
+   observed, never estimated — is labelled `actor: 'during-claude'` and carries
+   `duringToolEventId` so the UI can nest it under that call.
+
+   `during-claude` states co-occurrence, not cause. It must render visibly distinct from
+   `claude`, and must never be counted as a Claude action in any total, badge or metric.
+
+   Three rules keep the two apart:
+   - Containment never upgrades to `claude`. Only the path join produces `claude`.
+   - The path join always outranks containment. A row attributed by the join is never
+     downgraded to `during-claude`.
+   - If a change falls inside more than one interval the *label* still stands — a call was
+     running, that is a fact — but `duringToolEventId` is `null`. The system says "during
+     Claude", never "during *this* call", when it cannot tell which.
+
+   **Bare proximity remains forbidden**, as both parent and cause. "Near in time" without a
+   measured containing interval groups nothing. A call whose duration was never observed
+   (`state: 'unknown'`) has no interval and therefore contains nothing. And a tool call still
+   belongs to a file only if its input named that file — `Bash` never acquires a parent file
+   from whatever changed nearby.

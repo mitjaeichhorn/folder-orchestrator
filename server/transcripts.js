@@ -2,12 +2,19 @@ import { readdirSync, statSync, existsSync, openSync, readSync, closeSync, watch
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import * as bus from './bus.js'
-import { relabelEvent, updateEventDetail, insertUsage } from './db.js'
+import { relabelEvent, updateEventDetail, insertUsage, markDuring } from './db.js'
 import { log } from './log.js'
 
 const ROOT = process.env.ORCH_CLAUDE_DIR || join(homedir(), '.claude', 'projects')
-const MATCH_WINDOW = 5000
+const MATCH_WINDOW = 5000        // the exact-path join
 const RECENT_TTL = 30000
+const MAX_RECENT = 2000          // ceiling for a call that never closes
+const CONTAIN_GRACE = 2000       // measured: 8% of changes land within 2s AFTER a call ends
+// The watcher's 50ms debounce pushes fs timestamps LATER, never earlier, so no
+// lead tolerance is justified by the data. The knob exists; the value does not.
+const CONTAIN_LEAD = 0
+const CLOSED_TTL = 30000
+const MAX_CLOSED = 200
 const MAX_STR = 4096
 
 // Verified against the 50 real directories on this machine.
@@ -26,6 +33,10 @@ const tailers = new Map() // folderId -> {dir, files: Map<name,{ino,offset,buf}>
 const inFlight = new Map()
 const MAX_INFLIGHT = 500
 const recent = new Map()  // folderId -> [{id, absPath, ts}]
+// folderId -> [{eventId, start, end, sessionId, topic}] for calls that have CLOSED.
+// A file change can arrive after the call it sat inside already finished; without
+// this it could never be joined, because closeToolCall has already run.
+const closed = new Map()
 let db = null
 export function init (database) { db = database }
 
@@ -142,12 +153,87 @@ export function parseLine (line, folderId) {
 }
 
 // --- attribution ---------------------------------------------------------
+
+/**
+ * A 30s TTL was fine when `recent` only served a ±5s join. It is wrong for
+ * containment: a Bash running a test suite routinely exceeds 30s, so every file it
+ * touched would be evicted BEFORE closeToolCall could sweep — silently losing
+ * exactly the long calls where nesting matters most. Never evict a change that a
+ * still-open call could turn out to contain. MAX_RECENT is the backstop for a call
+ * that never closes: a memory ceiling beats completeness.
+ */
+function pruneRecent (folderId, now) {
+  const list = recent.get(folderId) || []
+  let oldestOpen = Infinity
+  for (const f of inFlight.values()) {
+    if (f.folderId === folderId && f.ts < oldestOpen) oldestOpen = f.ts
+  }
+  const cut = Math.min(now - RECENT_TTL, oldestOpen)
+  while (list.length && list[0].ts < cut) list.shift()
+  while (list.length > MAX_RECENT) list.shift()
+}
+
+function pushClosed (folderId, win) {
+  if (!closed.has(folderId)) closed.set(folderId, [])
+  const list = closed.get(folderId)
+  list.push(win)
+  const cut = win.end - CLOSED_TTL
+  while (list.length && list[0].end < cut) list.shift()
+  while (list.length > MAX_CLOSED) list.shift()
+}
+
+const contains = (win, ts) => ts >= win.start - CONTAIN_LEAD && ts <= win.end + CONTAIN_GRACE
+
+/**
+ * Which closed call contained this timestamp. Returns null when none did.
+ *
+ * With several candidates the LABEL still stands — a call was running, that is a
+ * fact — but the parent is null: "during Claude", never "during *this* call".
+ */
+function containedBy (folderId, ts) {
+  const hits = (closed.get(folderId) || []).filter(w => contains(w, ts))
+  if (!hits.length) return null
+  const one = hits.length === 1 ? hits[0] : null
+  return {
+    sessionId: one?.sessionId ?? null,
+    topic: one?.topic ?? null,
+    duringToolEventId: one?.eventId ?? null,
+    candidates: hits.length
+  }
+}
+
+/** True when a still-open call could also turn out to contain this timestamp. */
+function openRivals (folderId, ts, exceptEventId) {
+  let n = 0
+  for (const f of inFlight.values()) {
+    if (f.folderId === folderId && f.eventId !== exceptEventId && ts >= f.ts - CONTAIN_LEAD) n++
+  }
+  return n
+}
+
+/** Label a filesystem event as having occurred during a Claude call. */
+function applyDuring (folderId, eventId, info) {
+  if (!db || !markDuring(db, eventId, info)) return false
+  bus.patch(folderId, eventId, {
+    actor: 'during-claude',
+    sessionId: info.sessionId,
+    topic: info.topic,
+    duringToolEventId: info.duringToolEventId
+  })
+  log('INFO', 'contained', {
+    folder_id: folderId, event_id: eventId,
+    during_tool_event_id: info.duringToolEventId, candidates: info.candidates
+  })
+  return true
+}
+
 export function noteFsEvent (folderId, id, absPath, ts) {
   if (!recent.has(folderId)) recent.set(folderId, [])
-  const list = recent.get(folderId)
-  list.push({ id, absPath, ts })
-  const cut = ts - RECENT_TTL
-  while (list.length && list[0].ts < cut) list.shift()
+  recent.get(folderId).push({ id, absPath, ts })
+  pruneRecent(folderId, ts)
+  // forward direction: the containing call has already closed
+  const hit = containedBy(folderId, ts)
+  if (hit) applyDuring(folderId, id, hit)
 }
 
 export function attribute (ev) {
@@ -223,7 +309,10 @@ function drain (folderId, t, initial = false) {
         const emitted = bus.emit(ev)
         const tid = ev.detail?.toolUseId
         if (tid && emitted.id) {
-          inFlight.set(tid, { eventId: emitted.id, folderId, ts: ev.ts })
+          inFlight.set(tid, {
+            eventId: emitted.id, folderId, ts: ev.ts,
+            sessionId: ev.sessionId ?? null, topic: ev.topic ?? null
+          })
           // bounded: a session that never returns must not grow this forever
           if (inFlight.size > MAX_INFLIGHT) inFlight.delete(inFlight.keys().next().value)
         }
@@ -289,7 +378,35 @@ export function closeToolCall (folderId, { toolUseId, ts, isError }) {
   log('INFO', 'tool_closed', {
     folder_id: start.folderId, event_id: start.eventId, duration_ms: durationMs, state: patch.state
   })
-  return { eventId: start.eventId, durationMs }
+
+  // The window is only measurable now, so sweep BACKWARDS over changes that
+  // happened while this call was running.
+  const win = {
+    eventId: start.eventId, start: start.ts, end: start.ts + durationMs,
+    sessionId: start.sessionId ?? null, topic: start.topic ?? null
+  }
+  pushClosed(start.folderId, win)
+
+  let contained = 0
+  for (const r of (recent.get(start.folderId) || [])) {
+    if (!contains(win, r.ts)) continue
+    // A sibling still running could also contain this row. Claiming it now would
+    // hand out a parent on a coin flip — the label stands, the parent does not.
+    const rivals = openRivals(start.folderId, r.ts, win.eventId)
+    const ok = applyDuring(start.folderId, r.id, {
+      sessionId: rivals ? null : win.sessionId,
+      topic: rivals ? null : win.topic,
+      duringToolEventId: rivals ? null : win.eventId,
+      candidates: rivals + 1
+    })
+    if (ok) contained++
+  }
+  if (contained) {
+    log('INFO', 'containment_sweep', {
+      folder_id: start.folderId, event_id: start.eventId, contained
+    })
+  }
+  return { eventId: start.eventId, durationMs, contained }
 }
 
 export function _inFlightSize () { return inFlight.size }
@@ -317,7 +434,17 @@ export function stopTail (folderId) {
   try { t.handle?.close() } catch {}
   tailers.delete(folderId)
   recent.delete(folderId)
+  closed.delete(folderId)
   return true
 }
 
 export function _recent (folderId) { return recent.get(folderId) || [] }
+
+/** Test hooks: drive the containment machinery without a real transcript file. */
+export function _openCall (folderId, toolUseId, eventId, ts, sessionId = null, topic = null) {
+  inFlight.set(toolUseId, { eventId, folderId, ts, sessionId, topic })
+}
+export function _reset (folderId) {
+  recent.delete(folderId); closed.delete(folderId)
+  for (const [k, v] of inFlight) if (v.folderId === folderId) inFlight.delete(k)
+}

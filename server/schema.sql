@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS events (
   session_id TEXT,
   tool       TEXT,
   topic      TEXT,
+  -- events.id of the tool call whose measured interval contained this event.
+  -- Nullable and no FK on purpose: retention may delete the parent, and a
+  -- dangling pointer must degrade to "renders flat", never to a constraint error.
+  during_tool_event_id INTEGER,
   detail     TEXT NOT NULL DEFAULT '{}'
 );
 

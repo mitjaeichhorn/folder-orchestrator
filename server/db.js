@@ -19,6 +19,9 @@ export function open (path) {
 function migrate (db) {
   const cols = db.prepare('PRAGMA table_info(events)').all().map(c => c.name)
   if (!cols.includes('topic')) db.exec('ALTER TABLE events ADD COLUMN topic TEXT')
+  if (!cols.includes('during_tool_event_id')) {
+    db.exec('ALTER TABLE events ADD COLUMN during_tool_event_id INTEGER')
+  }
 }
 
 const rowToFolder = r => r && ({
@@ -29,6 +32,8 @@ const rowToFolder = r => r && ({
 const rowToEvent = r => ({
   id: r.id, folderId: r.folder_id, ts: r.ts, kind: r.kind, path: r.path,
   actor: r.actor, sessionId: r.session_id, tool: r.tool, topic: r.topic,
+  // rows written before this column existed read as null — old data stays well-formed
+  duringToolEventId: r.during_tool_event_id ?? null,
   detail: JSON.parse(r.detail)
 })
 
@@ -74,9 +79,11 @@ export function removeFolder (db, id, purge) {
 
 export function insertEvent (db, e) {
   const r = db.prepare(
-    'INSERT INTO events (folder_id,ts,kind,path,actor,session_id,tool,topic,detail) VALUES (?,?,?,?,?,?,?,?,?)'
+    `INSERT INTO events (folder_id,ts,kind,path,actor,session_id,tool,topic,during_tool_event_id,detail)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`
   ).run(e.folderId, e.ts, e.kind, e.path ?? null, e.actor ?? 'unknown',
-        e.sessionId ?? null, e.tool ?? null, e.topic ?? null, JSON.stringify(e.detail ?? {}))
+        e.sessionId ?? null, e.tool ?? null, e.topic ?? null,
+        e.duringToolEventId ?? null, JSON.stringify(e.detail ?? {}))
   return Number(r.lastInsertRowid)
 }
 
@@ -92,9 +99,33 @@ export function listEvents (db, { folderId, limit = 200, before, kinds, sessionI
   ).all(...args).map(rowToEvent)
 }
 
-export function relabelEvent (db, id, { actor, sessionId, topic }) {
-  db.prepare('UPDATE events SET actor=?, session_id=?, topic=COALESCE(?, topic) WHERE id=?')
-    .run(actor, sessionId ?? null, topic ?? null, id)
+/**
+ * The exact-path join. Unconditional on purpose: attribution outranks containment,
+ * so this upgrades `during-claude` to `claude` and is never refused.
+ */
+export function relabelEvent (db, id, { actor, sessionId, topic, duringToolEventId }) {
+  db.prepare(`UPDATE events SET actor=?, session_id=?, topic=COALESCE(?, topic),
+              during_tool_event_id=COALESCE(?, during_tool_event_id) WHERE id=?`)
+    .run(actor, sessionId ?? null, topic ?? null, duringToolEventId ?? null, id)
+}
+
+/**
+ * Containment, not causation — see invariant 6 of the event contract.
+ *
+ * `WHERE actor='external'` is the whole design. Only a row still at the null
+ * hypothesis may be labelled, which makes this idempotent and order-independent
+ * against the path join: the join can run before or after and still wins. It also
+ * means the `actor: 'unknown'` rate-ceiling rows are never touched — a summary row
+ * standing for N unidentified changes must not claim containment.
+ *
+ * Returns whether a row actually changed, which is the signal for whether to send
+ * a patch frame. Never patch a row the database declined to touch.
+ */
+export function markDuring (db, id, { sessionId, topic, duringToolEventId } = {}) {
+  return db.prepare(
+    `UPDATE events SET actor='during-claude', session_id=COALESCE(session_id,?),
+     topic=COALESCE(topic,?), during_tool_event_id=? WHERE id=? AND actor='external'`
+  ).run(sessionId ?? null, topic ?? null, duringToolEventId ?? null, id).changes > 0
 }
 
 /** Merge fields into an event's detail. Used to close a running tool call. */
