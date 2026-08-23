@@ -188,6 +188,13 @@ are noise — ignore unknown types silently, the format changes without notice.
 - **Claude-originated rows carry the real Claude Code mark, not `⌘`.** `⌘` means "command key".
   The path is inlined in `ClaudeIcon.tsx` from thesvg.org/icon/claude-code, filled with
   `currentColor` and toned with Anthropic's `#D97757` — no asset request, no external host.
+- **The sidebar rate is polled; nothing pushes it.** `/api/folders` carries each folder's
+  status, but it was fetched once at load, so every row froze at whatever the rate was when the
+  tab opened and an actively-worked project read `idle` indefinitely. SSE status frames only
+  cover the OPEN folder, so the other rows have no live source at all. The poll merges the
+  status field alone — re-running the loader would also re-pick the active folder, letting a
+  timer fight the operator's own selection — and runs at the server's 10s `RATE_WINDOW`, since
+  a faster poll resamples the same window and shows noise rather than news.
 - **The open project lives in the URL hash.** A reload, a bookmark or a second tab lands on the
   same folder. A hash rather than a path because the server serves index.html for unknown paths —
   a hash never reaches it, so there is nothing to misroute. A URL naming a folder that no longer

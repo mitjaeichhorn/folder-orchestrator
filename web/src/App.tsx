@@ -30,6 +30,9 @@ import { api, type Folder, type OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
 
+/** Matches the server's RATE_WINDOW: a shorter poll resamples the same window. */
+const STATUS_POLL_MS = 10_000
+
 function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange: () => void }) {
   const { events, status, conn, attempt, evicted, alerts, clearAlerts } = useStream()
   const [selected, setSelected] = useState<OrchEvent | null>(null)
@@ -190,6 +193,24 @@ export default function App () {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // The sidebar rate came from /api/folders, fetched once — so every row froze
+  // at whatever it was when the tab opened, and a project being actively worked
+  // on kept reading "idle". Refresh only the status field: re-running load()
+  // would also re-pick the active folder, letting a poll fight the operator's
+  // own selection. Matched to the server's 10s RATE_WINDOW — polling faster
+  // would resample the same window and show noise, not news.
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const fresh = await api.folders()
+        const byId = new Map(fresh.map(f => [f.id, f.status]))
+        setFolders(prev => prev.map(p => (byId.has(p.id) ? { ...p, status: byId.get(p.id)! } : p)))
+        setOffline(false)
+      } catch { /* the offline banner already reports this */ }
+    }, STATUS_POLL_MS)
+    return () => clearInterval(id)
+  }, [])
 
   // keep the URL in step, and follow it when the user goes back or edits it
   useEffect(() => {
