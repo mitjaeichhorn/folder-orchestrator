@@ -145,13 +145,17 @@ export function FeedRow ({
             )}
           </span>
           {locatable && locateTarget && (
+            // Always visible, dim until approached. Hidden-until-hover made the
+            // feature undiscoverable: there was nothing on screen to aim at.
             <button
               onClick={ev => ev.stopPropagation()}
+              onMouseEnter={() => onLocate?.(locateTarget)}
+              onMouseLeave={() => onLocate?.(null)}
               onFocus={() => onLocate?.(locateTarget)}
               onBlur={() => onLocate?.(null)}
               aria-label={t('feed.locate')}
               title={t('feed.locate')}
-              className="text-muted-foreground hover:text-foreground shrink-0 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100">
+              className="text-muted-foreground/40 hover:text-primary group-hover/row:text-muted-foreground/80 shrink-0 transition-colors">
               <FolderTree className="size-3.5" />
             </button>
           )}
