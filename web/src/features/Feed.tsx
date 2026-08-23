@@ -161,9 +161,11 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                           older event below, so a burst reads dense and a pause reads long */}
                       {rowGaps[i] > 0 && (
                         <div className="relative ml-1 flex" style={{ height: gapPx(rowGaps[i]) }}>
-                          <div className="border-muted-foreground/25 h-full border-l border-dashed" />
-                          {(gapPx(rowGaps[i]) >= 22 || isCapped(rowGaps[i])) && (
-                            <span className={cn('text-muted-foreground/50 self-center pl-1.5 text-[10px] tabular-nums',
+                          {/* 25% on a dark ground was invisible, so the duration label
+                              floated with nothing to explain it */}
+                          <div className="border-muted-foreground/60 h-full border-l border-dashed" />
+                          {(gapPx(rowGaps[i]) >= 14 || isCapped(rowGaps[i])) && (
+                            <span className={cn('text-muted-foreground/70 self-center pl-1.5 text-[10px] tabular-nums',
                               isCapped(rowGaps[i]) && 'text-amber-500/60')}>
                               {isCapped(rowGaps[i]) ? `↕ ${fmtGap(rowGaps[i])}` : fmtGap(rowGaps[i])}
                             </span>
