@@ -3,7 +3,11 @@ import { Toaster, toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel,
+  SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  SidebarProvider, SidebarRail, SidebarTrigger
+} from '@/components/ui/sidebar'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { StreamProvider } from '@/hooks/StreamProvider'
 import { useStream } from '@/hooks/useStream'
@@ -40,6 +44,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center gap-3 border-b px-4 py-2">
+        <SidebarTrigger className="-ml-1" />
         <p className="truncate font-mono text-sm">{folder.path}</p>
         <div className="ml-auto flex items-center gap-2 text-xs">
           <span className={cn('inline-block size-2 rounded-full',
@@ -128,51 +133,65 @@ export default function App () {
   const active = folders.find(f => f.id === activeId) ?? null
 
   return (
-    <div className="bg-background text-foreground flex h-screen">
-      <aside className="flex w-64 shrink-0 flex-col border-r">
-        <div className="border-b px-4 py-3">
+    <SidebarProvider>
+      <div className="bg-background text-foreground flex h-screen w-full">
+      <Sidebar collapsible="offcanvas">
+        <SidebarHeader className="border-b">
           <p className="text-sm font-semibold">{t('app.title')}</p>
           <p className="text-muted-foreground text-xs">{t('app.watching', { count: folders.length })}</p>
-        </div>
-        <ScrollArea className="min-h-0 flex-1">
-          <p className="text-muted-foreground px-4 pt-3 pb-1 text-xs uppercase">{t('sidebar.projects')}</p>
-          {folders.length === 0
-            ? <p className="text-muted-foreground px-4 py-2 text-xs">{t('sidebar.noFolders')}</p>
-            : folders.map(f => (
-              <button key={f.id} onClick={() => setActiveId(f.id)}
-                className={cn('hover:bg-muted/50 w-full px-4 py-2 text-left', activeId === f.id && 'bg-muted')}>
-                <div className="flex items-center gap-2">
-                  <span className={cn('inline-block size-2 shrink-0 rounded-full',
-                    !f.enabled ? 'bg-muted-foreground' : f.status?.watching ? 'bg-emerald-500' : 'bg-rose-500')} />
-                  <span className="truncate text-sm">{f.name}</span>
-                </div>
-                <span className="text-muted-foreground pl-4 text-xs">
-                  {!f.enabled ? t('sidebar.paused')
-                    : f.status?.eventsPerMin ? t('sidebar.eventsPerMin', { n: f.status.eventsPerMin })
-                      : t('sidebar.idle')}
-                </span>
-              </button>
-            ))}
-        </ScrollArea>
-        <div className="border-t p-3">
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>{t('sidebar.projects')}</SidebarGroupLabel>
+            {folders.length === 0
+              ? <p className="text-muted-foreground px-2 py-1 text-xs">{t('sidebar.noFolders')}</p>
+              : (
+                <SidebarMenu>
+                  {folders.map(f => (
+                    <SidebarMenuItem key={f.id}>
+                      <SidebarMenuButton isActive={activeId === f.id} onClick={() => setActiveId(f.id)}
+                        className="h-auto flex-col items-start gap-0.5 py-1.5">
+                        <span className="flex w-full items-center gap-2">
+                          <span className={cn('inline-block size-2 shrink-0 rounded-full',
+                            !f.enabled ? 'bg-muted-foreground' : f.status?.watching ? 'bg-emerald-500' : 'bg-rose-500')} />
+                          <span className="truncate text-sm">{f.name}</span>
+                        </span>
+                        <span className="text-muted-foreground pl-4 text-xs">
+                          {!f.enabled ? t('sidebar.paused')
+                            : f.status?.eventsPerMin ? t('sidebar.eventsPerMin', { n: f.status.eventsPerMin })
+                              : t('sidebar.idle')}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              )}
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter className="border-t">
           <Button className="w-full" size="sm" onClick={() => setDialog(true)}>{t('sidebar.addFolder')}</Button>
-        </div>
-      </aside>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
 
-      {offline
-        ? <div className="flex flex-1 items-center justify-center">
-            <Badge variant="destructive">{t('app.disconnected')}</Badge>
-          </div>
-        : active
-          ? <StreamProvider key={active.id} folderId={active.id}>
-              <Workspace folder={active} onFolderChange={load} />
-            </StreamProvider>
-          : <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-              {t('sidebar.noFolders')}
-            </div>}
+      <SidebarInset className="min-w-0">
+        {offline
+          ? <div className="flex flex-1 items-center justify-center">
+              <Badge variant="destructive">{t('app.disconnected')}</Badge>
+            </div>
+          : active
+            ? <StreamProvider key={active.id} folderId={active.id}>
+                <Workspace folder={active} onFolderChange={load} />
+              </StreamProvider>
+            : <div className="text-muted-foreground flex flex-1 items-center justify-center gap-3 text-sm">
+                <SidebarTrigger />
+                {t('sidebar.noFolders')}
+              </div>}
+      </SidebarInset>
 
       <AddFolderDialog open={dialog} onOpenChange={setDialog} onAdded={load} />
       <Toaster theme="dark" position="top-right" />
-    </div>
+      </div>
+    </SidebarProvider>
   )
 }

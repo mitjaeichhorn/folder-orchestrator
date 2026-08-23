@@ -3,3 +3,5 @@ data/
 logs/
 web/dist/
 .DS_Store
+.playwright-mcp/
+*.png
