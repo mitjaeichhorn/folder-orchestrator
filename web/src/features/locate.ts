@@ -10,6 +10,20 @@ import { ancestors } from './heat.ts'
  * pointer leaves during a re-render or a tree refetch.
  */
 
+/**
+ * One blue, used by the icon you hover and the branch it lights, so the two are
+ * visibly the same gesture. Defined once because two independently chosen blues
+ * would drift the moment either is touched.
+ *
+ * Deliberately not `primary` — that is near-white in this theme, so the
+ * highlight read as a grey band rather than a colour. And deliberately not the
+ * churn ramp's sky-400, so a By-file bar and a locate highlight stay distinct.
+ */
+export const LOCATE_HUE = 'blue-400'
+export const LOCATE_ICON_TONE = 'text-blue-400'
+export const LOCATE_CHAIN_CLASS = 'bg-blue-400/12'
+export const LOCATE_TARGET_CLASS = 'bg-blue-400/25 ring-1 ring-blue-400/60'
+
 /** Shared empty set so a no-hover render is referentially stable. */
 const EMPTY: ReadonlySet<string> = Object.freeze(new Set<string>()) as ReadonlySet<string>
 

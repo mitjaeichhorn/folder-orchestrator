@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
 import { pruneToActive, activeFolders, shouldPulse } from '../src/features/prune-tree.ts'
 import { heatColor, heatOpacity } from '../src/features/heat-color.ts'
-import { chainOf, revealPredicate, isOpenWith } from '../src/features/locate.ts'
+import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/locate.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
   assert.deepEqual(ancestors('a/b/c.ts'), ['a', 'a/b', 'a/b/c.ts'])
@@ -293,4 +293,28 @@ test('both overrides compose: collapsed AND filtered out is still revealed', () 
   const kept = pruneToActive(TREE, revealPredicate(() => false, chain))
   assert.equal(kept.length, 1, 'nothing is active, yet the chain survives')
   assert.equal(isOpenWith(closed, chain, 'src/lib'), true)
+})
+
+test('the locate icon and the branch it lights share one hue', () => {
+  // two independently chosen blues would drift the moment either is touched
+  for (const c of [LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS]) {
+    assert.ok(c.includes(LOCATE_HUE), `${c} must use ${LOCATE_HUE}`)
+  }
+})
+
+test('the locate blue is not primary, which is near-white in this theme', () => {
+  for (const c of [LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS]) {
+    assert.ok(!c.includes('primary'), c)
+  }
+})
+
+test('the locate blue does not collide with the churn ramp', async () => {
+  const { CHURN_STOPS } = await import('../src/features/churn.ts')
+  assert.ok(!CHURN_STOPS.some(s => s.color.includes(LOCATE_HUE)),
+    'a By-file bar and a locate highlight must stay distinct')
+})
+
+test('the target is emphasised more than the rest of its chain', () => {
+  assert.ok(LOCATE_TARGET_CLASS.includes('ring'), 'the file itself gets a ring')
+  assert.ok(!LOCATE_CHAIN_CLASS.includes('ring'), 'its ancestors do not')
 })

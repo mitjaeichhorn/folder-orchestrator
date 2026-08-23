@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
 import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
-import { chainOf, revealPredicate, isOpenWith } from './locate'
+import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
 import { heatColor, heatOpacity } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
@@ -60,7 +60,7 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
       <div key={flashKey}
         className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight',
           justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
-          onChain && 'bg-primary/10', isTarget && 'bg-primary/25 ring-primary/50 ring-1')}
+          onChain && LOCATE_CHAIN_CLASS, isTarget && LOCATE_TARGET_CLASS)}
         style={style} title={node.p}>
         {node.n}
       </div>
@@ -71,7 +71,7 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
       <button key={flashKey} onClick={() => toggle(node.p)}
         className={cn('hover:bg-muted/40 flex w-full items-center gap-0.5 truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
           justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
-          onChain && 'bg-primary/10')}
+          onChain && LOCATE_CHAIN_CLASS)}
         style={style} title={node.p}>
         {isOpen
           ? <ChevronDown className="size-2.5 shrink-0" />

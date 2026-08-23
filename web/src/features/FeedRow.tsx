@@ -156,7 +156,7 @@ export function FeedRow ({
               onBlur={() => onLocate?.(null)}
               aria-label={t('feed.locate')}
               title={t('feed.locate')}
-              className="text-muted-foreground/40 hover:text-primary group-hover/row:text-muted-foreground/80 shrink-0 transition-colors">
+              className="text-muted-foreground/40 hover:text-blue-400 group-hover/row:text-muted-foreground/80 shrink-0 transition-colors">
               <FolderTree className="size-3.5" />
             </button>
           )}

@@ -160,7 +160,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
                 onBlur={() => onLocate?.(null)}
                 aria-label={t('feed.locate')}
                 title={t('feed.locate')}
-                className="text-muted-foreground/40 hover:text-primary group-hover/file:text-muted-foreground/80 shrink-0 transition-colors">
+                className="text-muted-foreground/40 hover:text-blue-400 group-hover/file:text-muted-foreground/80 shrink-0 transition-colors">
                 <FolderTree className="size-3.5" />
               </button>
             )}
