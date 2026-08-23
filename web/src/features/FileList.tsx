@@ -59,6 +59,17 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
     () => (tree ? allFilesByLastChange(tree, groupByFile(events)) : []),
     [tree, events]
   )
+  // Long files sort by size, not recency: the point of the filter is to find the
+  // worst offender, and their mtimes are by definition old — that is why they
+  // were invisible in the default order (earliest sat at row 558 of 4,783).
+  const longRows = useMemo(
+    () => rows.filter(r => typeof r.lines === 'number' && r.lines > LINE_ALERT_AT)
+      .sort((a, b) => (b.lines ?? 0) - (a.lines ?? 0)),
+    [rows]
+  )
+  const [onlyLong, setOnlyLong] = useState(false)
+  const view = onlyLong ? longRows : rows
+
   // the tree is only refetched on a debounce, so it can still list a file we
   // have already watched being deleted
   const gone = useMemo(() => deletedPaths(events), [events])
@@ -79,7 +90,10 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
   const [limit, setLimit] = useState(PAGE)
   // a new folder starts from the top again
   useEffect(() => { setLimit(PAGE); seen.current = new Map() }, [folderId])
-  const shown = rows.slice(0, limit)
+  // a filter change starts from the top again, or page 6 of one list becomes
+  // page 6 of a list with 43 entries
+  useEffect(() => { setLimit(PAGE) }, [onlyLong])
+  const shown = view.slice(0, limit)
 
   if (error) return <p className="text-muted-foreground p-8 text-center text-sm">{t('files.error')}</p>
   if (!tree) return <p className="text-muted-foreground p-8 text-center text-sm">{t('files.loading')}</p>
@@ -88,8 +102,15 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
   return (
     <div className="text-sm">
       <div className="text-muted-foreground flex items-center gap-3 border-b px-4 py-1.5 text-xs">
-        <span>{t('files.count', { n: rows.length })}</span>
-        {shown.length < rows.length && <span>{t('files.showing', { n: shown.length })}</span>}
+        <span>{t('files.count', { n: view.length })}</span>
+        {shown.length < view.length && <span>{t('files.showing', { n: shown.length })}</span>}
+        {longRows.length > 0 && (
+          <Button size="sm" variant={onlyLong ? 'secondary' : 'ghost'}
+            className="h-5 px-1.5 text-xs"
+            onClick={() => setOnlyLong(v => !v)}>
+            {t('files.longCount', { n: fmtNum(longRows.length), at: fmtNum(LINE_ALERT_AT) })}
+          </Button>
+        )}
         <span className="ml-auto flex items-center gap-1.5">
           {t('files.legend')}
           <span className="inline-block h-2 w-16 rounded-full"
@@ -177,13 +198,13 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
         )
       })}
 
-      {shown.length < rows.length && (
+      {shown.length < view.length && (
         <div className="border-t p-3 text-center">
           <Button size="sm" variant="outline" onClick={() => setLimit(n => n + PAGE)}>
-            {t('files.showMore', { n: Math.min(PAGE, rows.length - shown.length) })}
+            {t('files.showMore', { n: Math.min(PAGE, view.length - shown.length) })}
           </Button>
           <p className="text-muted-foreground mt-1.5 text-xs">
-            {t('files.remaining', { n: rows.length - shown.length })}
+            {t('files.remaining', { n: view.length - shown.length })}
           </p>
         </div>
       )}

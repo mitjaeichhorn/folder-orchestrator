@@ -188,5 +188,6 @@
   "files.unobserved": "Not seen changing while watching — ranked by its file timestamp",
   "files.longFile": "{n} lines — over {at}, worth splitting",
   "files.lines": "{n} lines",
+  "files.longCount": "{n} over {at} lines",
   "files.notObserved": "—"
 }

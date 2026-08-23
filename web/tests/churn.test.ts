@@ -219,3 +219,26 @@ test('a tool touch after a deletion does not resurrect the file', () => {
 test('pathless events are ignored', () => {
   assert.equal(deletedPaths([{ path: null, kind: 'deleted' }]).size, 0)
 })
+
+test('long files sort by size, since their mtimes are old by definition', () => {
+  // The reason the filter exists: in the default recency order the first file
+  // over the threshold sat at row 558 of 4,783, so the badge was unreachable.
+  const rows = [
+    { path: 'a.ts', lines: 1200, lastTs: 1 },
+    { path: 'b.ts', lines: 6314, lastTs: 2 },
+    { path: 'c.ts', lines: undefined, lastTs: 9 },
+    { path: 'd.ts', lines: 900, lastTs: 8 }
+  ]
+  const long = rows
+    .filter(r => typeof r.lines === 'number' && r.lines > 1000)
+    .sort((a, b) => (b.lines ?? 0) - (a.lines ?? 0))
+  assert.deepEqual(long.map(r => r.path), ['b.ts', 'a.ts'])
+  assert.equal(long.every(r => (r.lines ?? 0) > 1000), true)
+})
+
+test('a file with no measured count is never flagged as long', () => {
+  // Absent means "not judged" — exempt extension, binary, or over the read cap.
+  // Treating undefined as 0 would be harmless; treating it as long would not.
+  const rows = [{ path: 'x.py', lines: undefined }, { path: 'y.bin', lines: undefined }]
+  assert.equal(rows.filter(r => typeof r.lines === 'number' && r.lines > 1000).length, 0)
+})
