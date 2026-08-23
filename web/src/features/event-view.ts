@@ -21,7 +21,8 @@ export const oneLine = (s: string) => {
 export function rowText (e: OrchEvent): string {
   if (e.detail?.collapsed) return t('feed.collapsed', { n: e.detail.collapsed })
   if (e.kind === 'alert') return t(e.detail?.label ?? 'kind.alert')
-  if (e.kind === 'prompt') return oneLine(e.detail?.text ?? '')
+  // full text, line breaks intact — FeedRow wraps it rather than truncating
+  if (e.kind === 'prompt') return String(e.detail?.text ?? '').trim()
   if (e.kind === 'tool') {
     if (e.path) return e.path
     const d = e.detail?.input

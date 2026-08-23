@@ -71,7 +71,7 @@ export function FeedRow ({
       </td>
 
       <td className="max-w-0 py-1 pr-2 align-top">
-        <div className="flex min-w-0 items-center gap-2"
+        <div className={cn('flex min-w-0 gap-2', isAuthored(e) && e.kind === 'prompt' ? 'items-start' : 'items-center')}
           style={depth ? { paddingLeft: depth * 18 } : undefined}
           title={e.burst ? e.burst.paths.join('\n') : rowText(e)}>
 
@@ -107,7 +107,11 @@ export function FeedRow ({
             </span>
           )}
 
-          <span className={cn('truncate text-xs',
+          <span className={cn('text-xs',
+            // A prompt is the operator's own words: shown whole, line breaks and
+            // all. Everything else stays one line — a wrapped path is three rows
+            // of noise, and the full value is in the panel a click away.
+            e.kind === 'prompt' ? 'break-words whitespace-pre-wrap' : 'truncate',
             isAuthored(e)
               ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
               : 'font-mono',

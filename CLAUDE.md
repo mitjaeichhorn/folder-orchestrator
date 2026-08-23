@@ -72,6 +72,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   `file_path`; `Bash` and MCP tools carry none, and `Bash` is by far the most common. Measured,
   not guessed. Any file-centric view must therefore have an explicit home for pathless actions —
   never assign one to whichever file happened to change nearby.
+- **Claude Code writes `user` records to itself, and they are not prompts.** `/compact` alone
+  emits four — `<command-name>`, a caveat, `<local-command-stdout>`, and the continuation
+  preamble the next session opens with. They arrive on exactly the same record shape as a real
+  prompt, so they rendered as raw XML in the feed AND became topics, filing every later action
+  under `<command-name>/compact`. `isOperatorPrompt` matches the wrapper tags rather than the
+  prose inside them: the tags are structure and stable, the wording is not. Measured over two
+  transcripts: 69 real prompts to 5 of these.
 - **The topic is the operator's prompt, verbatim.** Claude Code writes a `last-prompt` record;
   we slice it by character count and never by meaning. Tailing starts at EOF, so `primeTopics`
   reads back over the file to recover the current topic — without it, the topic is null until
