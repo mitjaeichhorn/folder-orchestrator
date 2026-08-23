@@ -129,6 +129,14 @@ Keep it at this file count. New concerns go into an existing file until it genui
   change: 591ms cold, 170ms warm on a 4,783-file project. `.jsonl` is exempt with `.json` —
   a line-delimited log is thousands of lines by definition, and the five longest files in the
   test project were all append-only logs.
+- **Length tiers are discrete steps, not a ramp — and they run hotter toward yellow.** Three
+  steps (muted / orange >2000 / yellow >3000) say "long", "longer", "worst" and nothing finer;
+  interpolating would give 2,001 and 2,002 lines different colours, a distinction with no
+  meaning, which is why this does not go through `gradient.ts`. Yellow outranking orange is the
+  reverse of a traffic light and deliberate: it matches the heat ramp's own white -> yellow ->
+  orange -> grey. Note the cost — that ramp and these badges now share a hue family and can be
+  on screen together, which the colour rules otherwise forbid. They are separated by column and
+  by shape (a pill, never a tree row), not by hue.
 - **The long-file badge is one rule; the exemption lives in the FILTER.** Showing the count
   everywhere but exempting python from the badge left the feed, By topic and the detail panel
   permanently blank — measured live, all five long files present in the feed were `.py`, and the

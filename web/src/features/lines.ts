@@ -21,6 +21,26 @@ export function showsLineBadge (lines?: number): boolean {
   return typeof lines === 'number' && lines > LINE_ALERT_AT
 }
 
+/**
+ * Length tiers. Note these run hotter toward yellow, matching this app's own
+ * heat ramp (white -> yellow -> orange -> grey) rather than the traffic-light
+ * convention where orange outranks yellow.
+ */
+export const LINE_TIER_ORANGE = 2000
+export const LINE_TIER_YELLOW = 3000
+
+/**
+ * The badge's colour for a given length. Discrete tiers, not a ramp: `gradient.ts`
+ * exists for continuous scales, and interpolating here would put a different
+ * colour on 2,001 and 2,002 lines — a distinction with no meaning. Three steps
+ * say "long", "longer", "worst" and nothing finer.
+ */
+export function lineTone (lines: number): string {
+  if (lines > LINE_TIER_YELLOW) return 'border-yellow-400/40 text-yellow-400'
+  if (lines > LINE_TIER_ORANGE) return 'border-orange-400/40 text-orange-400'
+  return 'text-muted-foreground'
+}
+
 /** Files the default "over N lines" filter collects — python excluded. */
 export function inDefaultLongFilter (path: string, lines?: number): boolean {
   return showsLineBadge(lines) && !isBadgeExempt(path)

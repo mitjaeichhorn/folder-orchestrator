@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { LINE_ALERT_AT } from '@shared/glob.js'
-import { showsLineBadge } from './lines.ts'
+import { showsLineBadge, lineTone } from './lines.ts'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,7 @@ export function LineBadge ({ lines, className }: {
   if (typeof lines !== 'number' || !showsLineBadge(lines)) return null
   return (
     <Badge variant="outline"
-      className={cn('text-muted-foreground shrink-0 tabular-nums', className)}
+      className={cn('shrink-0 tabular-nums', lineTone(lines), className)}
       title={t('files.longFile', { n: fmtNum(lines), at: fmtNum(LINE_ALERT_AT) })}>
       {t('files.lines', { n: fmtNum(lines) })}
     </Badge>

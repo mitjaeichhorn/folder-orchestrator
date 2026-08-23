@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lineIndex, showsLineBadge, inDefaultLongFilter } from '../src/features/lines.ts'
+import {
+  lineIndex, showsLineBadge, inDefaultLongFilter,
+  lineTone, LINE_TIER_ORANGE, LINE_TIER_YELLOW
+} from '../src/features/lines.ts'
 import { LINE_ALERT_AT, isExecutablePath } from '../../shared/glob.js'
 
 test('the index carries only files we actually measured', () => {
@@ -38,4 +41,27 @@ test('the exemption lives in the FILTER, not the badge', () => {
   assert.equal(inDefaultLongFilter('a.md', 5000), false)
   // ...and the executables filter is where python is asked about
   assert.equal(isExecutablePath('a.py'), true)
+})
+
+test('length tiers step at the stated thresholds, and are strictly over', () => {
+  assert.match(lineTone(1500), /text-muted-foreground/)
+  assert.match(lineTone(LINE_TIER_ORANGE), /text-muted-foreground/, '2000 exactly is not yet orange')
+  assert.match(lineTone(LINE_TIER_ORANGE + 1), /text-orange-400/)
+  assert.match(lineTone(LINE_TIER_YELLOW), /text-orange-400/, '3000 exactly is not yet yellow')
+  assert.match(lineTone(LINE_TIER_YELLOW + 1), /text-yellow-400/)
+})
+
+test('every tier is a colour, never an opacity', () => {
+  // gradient.ts records why: element opacity fades the badge border and any
+  // row treatment underneath it, not just the text.
+  for (const n of [1500, 2500, 6314]) {
+    assert.doesNotMatch(lineTone(n), /opacity-/, String(n))
+  }
+})
+
+test('the tiers order hot-to-cold the way this app reads heat', () => {
+  // white -> yellow -> orange -> grey. Yellow outranks orange here, which is the
+  // reverse of a traffic light and matches the heat ramp instead.
+  assert.notEqual(lineTone(6314), lineTone(2500))
+  assert.notEqual(lineTone(2500), lineTone(1500))
 })
