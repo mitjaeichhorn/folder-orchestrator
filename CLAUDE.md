@@ -100,7 +100,9 @@ are noise — ignore unknown types silently, the format changes without notice.
   `min-h-0` + `overflow-hidden` for the inner scrollers to work. Verified by measuring
   `scrollHeight` vs `clientHeight` per column, not by eye — the layout looked fine while the page
   was scrolling as one.
-- **Claude-originated rows carry the Claude mark, not `⌘`.** `⌘` means "command key".
+- **Claude-originated rows carry the real Claude Code mark, not `⌘`.** `⌘` means "command key".
+  The path is inlined in `ClaudeIcon.tsx` from thesvg.org/icon/claude-code, filled with
+  `currentColor` and toned with Anthropic's `#D97757` — no asset request, no external host.
 - **The view switch is not a filter.** Timeline / By topic stays in the feed column; the
   collapsible filter area holds the tabs, kind chips, path glob and time window.
 
