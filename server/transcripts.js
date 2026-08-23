@@ -36,6 +36,33 @@ const clip = s => (typeof s === 'string' && s.length > MAX_STR
 // as a `last-prompt` record; we carry it forward onto every action that follows.
 // This is transcription, not inference — no summarisation anywhere.
 const topics = new Map() // sessionId -> current topic string
+
+/**
+ * A message sent mid-turn never produces a `last-prompt` record — it is stored
+ * as an attachment of type `queued_command`. Without this, every interjection is
+ * invisible to the topic tracker and its work is billed to whatever topic was
+ * active when the turn began. Verified: 33 of them in one session.
+ */
+export function topicFromRecord (o) {
+  if (o.type === 'last-prompt' && o.lastPrompt) return textOf(o.lastPrompt)
+  if (o.type === 'attachment') {
+    const a = o.attachment
+    if (a?.type === 'queued_command' && a.commandMode === 'prompt') return textOf(a.prompt)
+  }
+  return null
+}
+
+/** `prompt` is a plain string, or content blocks when the message carried an image. */
+function textOf (p) {
+  if (typeof p === 'string') return p
+  if (Array.isArray(p)) return p.filter(b => b?.type === 'text').map(b => b.text ?? '').join(' ')
+  return ''
+}
+
+const asTopic = raw => {
+  const first = String(raw ?? '').trim().split('\n').find(l => l.trim()) ?? ''
+  return first.slice(0, TOPIC_MAX)
+}
 export const topicOf = sessionId => topics.get(sessionId) ?? null
 export const _setTopic = (sessionId, topic) => topics.set(sessionId, topic)
 const TOPIC_MAX = 160
@@ -46,9 +73,10 @@ export function parseLine (line, folderId) {
   const ts = o.timestamp ? Date.parse(o.timestamp) : Date.now()
   const sessionId = o.sessionId || null
 
-  if (o.type === 'last-prompt' && o.lastPrompt) {
-    const topic = String(o.lastPrompt).trim().split('\n')[0].slice(0, TOPIC_MAX)
-    if (sessionId) topics.set(sessionId, topic)
+  const marker = topicFromRecord(o)
+  if (marker !== null) {
+    const topic = asTopic(marker)
+    if (sessionId && topic) topics.set(sessionId, topic)
     return { skip: 'topic_recorded', topic }
   }
 
@@ -216,13 +244,14 @@ export function primeTopics (file, folderId = null) {
   for (const line of text.split('\n')) {
     if (!line) continue
     // cheap pre-filter: most lines are neither, and JSON.parse is the expensive part
-    if (!line.includes('last-prompt') && !line.includes('"usage"')) continue
+    if (!line.includes('last-prompt') && !line.includes('queued_command') && !line.includes('"usage"')) continue
     let o
     try { o = JSON.parse(line) } catch { continue }
     const sid = o.sessionId || null
-    if (o.type === 'last-prompt' && o.lastPrompt && sid) {
-      topics.set(sid, String(o.lastPrompt).trim().split('\n')[0].slice(0, TOPIC_MAX))
-      found++
+    const marker = topicFromRecord(o)
+    if (marker !== null) {
+      const topic = asTopic(marker)
+      if (sid && topic) { topics.set(sid, topic); found++ }
       continue
     }
     if (o.type === 'assistant' && o.message?.usage && folderId && db) {

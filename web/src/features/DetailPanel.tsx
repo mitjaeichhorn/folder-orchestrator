@@ -7,7 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type OrchEvent, type Folder } from '@/lib/api'
 import { isImagePath } from '@shared/glob.js'
 import { Thumb } from './Thumb'
-import { FilePath } from './FilePath'
 import { Lightbox } from './Lightbox'
 import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
@@ -20,9 +19,9 @@ const AGAINST_KEY: Record<string, string> = {
 /** Unified diff text, coloured by leading character. No parser needed. */
 function UnifiedDiff ({ text }: { text: string }) {
   return (
-    <div className="bg-muted/40 max-h-80 overflow-auto rounded-md border font-mono text-xs">
+    <div className="bg-muted/40 max-h-80 overflow-y-auto rounded-md border font-mono text-xs">
       {text.split('\n').map((l, i) => (
-        <div key={i} className={cn('whitespace-pre px-2',
+        <div key={i} className={cn('px-2 break-words whitespace-pre-wrap',
           l.startsWith('+') && !l.startsWith('+++') && 'text-emerald-400',
           l.startsWith('-') && !l.startsWith('---') && 'text-rose-400',
           l.startsWith('@@') && 'text-sky-400',
@@ -33,17 +32,31 @@ function UnifiedDiff ({ text }: { text: string }) {
   )
 }
 
+/** A path with no spaces will not wrap on its own — offer a break after each "/". */
+function WrapPath ({ path, className }: { path: string; className?: string }) {
+  const parts = path.split('/')
+  return (
+    <span className={cn('font-mono break-words', className)}>
+      {parts.map((seg, i) => (
+        <span key={i}>
+          {i > 0 && '/'}<wbr />{seg}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function Diff ({ oldS, newS }: { oldS?: { text?: string; truncated?: boolean }; newS?: { text?: string; truncated?: boolean } }) {
-  if (!oldS && !newS) return <p className="text-muted-foreground text-sm">{t('detail.noDiff')}</p>
+  if (!oldS && !newS) return <p className="text-muted-foreground text-xs">{t('detail.noDiff')}</p>
   const removed = (oldS?.text ?? '').split('\n')
   const added = (newS?.text ?? '').split('\n')
   return (
-    <div className="bg-muted/40 overflow-x-auto rounded-md border font-mono text-xs">
+    <div className="bg-muted/40 rounded-md border font-mono text-xs">
       {removed.filter(Boolean).map((l, i) => (
-        <div key={`r${i}`} className="whitespace-pre px-2 text-rose-400">- {l}</div>
+        <div key={`r${i}`} className="px-2 break-words whitespace-pre-wrap text-rose-400">- {l}</div>
       ))}
       {added.filter(Boolean).map((l, i) => (
-        <div key={`a${i}`} className="whitespace-pre px-2 text-emerald-400">+ {l}</div>
+        <div key={`a${i}`} className="px-2 break-words whitespace-pre-wrap text-emerald-400">+ {l}</div>
       ))}
       {(oldS?.truncated || newS?.truncated) && (
         <div className="text-muted-foreground border-t px-2 py-1">{t('feed.truncated')}</div>
@@ -88,7 +101,7 @@ export function DetailPanel ({ event, folder, onMute }: {
     }
   }
   if (!event) {
-    return <p className="text-muted-foreground p-8 text-center text-sm">{t('detail.none')}</p>
+    return <p className="text-muted-foreground p-8 text-center text-xs">{t('detail.none')}</p>
   }
   const d = event.detail ?? {}
   const burst = (event as any).burst as { count: number; dir: string; paths: string[] } | undefined
@@ -99,7 +112,9 @@ export function DetailPanel ({ event, folder, onMute }: {
     <ScrollArea className="h-full min-h-0">
       <div className="space-y-4 p-4">
         <div>
-          <p className="font-mono text-sm break-all">{event.path ?? t(`kind.${event.kind}`)}</p>
+          {event.path
+            ? <WrapPath path={event.path} className="text-xs" />
+            : <p className="font-mono text-xs">{t(`kind.${event.kind}`)}</p>}
           <p className="text-muted-foreground text-xs">
             {t(`kind.${event.kind}`)} · {fmtDateTime(event.ts)}
           </p>
@@ -123,7 +138,7 @@ export function DetailPanel ({ event, folder, onMute }: {
               {t('detail.burstFiles', { n: burst.count })}
             </p>
             <div className="bg-muted/40 max-h-72 space-y-0.5 overflow-auto rounded-md border p-2">
-              {burst.paths.map(p => <FilePath key={p} path={p} className="block truncate text-xs" />)}
+              {burst.paths.map(p => <WrapPath key={p} path={p} className="block text-xs" />)}
             </div>
           </div>
         )}
@@ -148,7 +163,7 @@ export function DetailPanel ({ event, folder, onMute }: {
         {event.tool === 'Bash' && d.input?.command && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs uppercase">{t('detail.command')}</p>
-            <pre className="bg-muted/40 overflow-x-auto rounded-md border p-2 font-mono text-xs">{d.input.command}</pre>
+            <pre className="bg-muted/40 max-h-80 overflow-y-auto rounded-md border p-2 font-mono text-xs break-words whitespace-pre-wrap">{d.input.command}</pre>
           </div>
         )}
 
@@ -161,13 +176,13 @@ export function DetailPanel ({ event, folder, onMute }: {
               )}
             </p>
             {gitDiff === null
-              ? <p className="text-muted-foreground text-sm">{t('detail.diffLoading')}</p>
+              ? <p className="text-muted-foreground text-xs">{t('detail.diffLoading')}</p>
               : gitDiff.available && gitDiff.text
                 ? <>
                     <UnifiedDiff text={gitDiff.text} />
                     {gitDiff.truncated && <p className="text-muted-foreground text-xs">{t('feed.truncated')}</p>}
                   </>
-                : <p className="text-muted-foreground text-sm">
+                : <p className="text-muted-foreground text-xs">
                     {t(gitDiff.reason === 'NOT_A_REPO' ? 'detail.noGit'
                       : gitDiff.reason === 'NO_CHANGES' ? 'detail.noChanges'
                       : 'detail.noDiff')}

@@ -127,12 +127,20 @@ export function sweepRetention (db, days = 30, now = Date.now()) {
  * double-count tokens.
  */
 export function insertUsage (db, u) {
-  const r = db.prepare(`INSERT OR IGNORE INTO token_usage
+  // Returns true only for a NEW row, so the backfill log counts what it added
+  // rather than what it revisited.
+  const isNew = !u.messageId ||
+    !db.prepare('SELECT 1 FROM token_usage WHERE message_id = ?').get(u.messageId)
+  // ON CONFLICT updates ONLY the topic: token counts stay as first recorded, so
+  // a re-read still cannot double-count, but a topic we learned to attribute
+  // better (mid-turn messages) corrects itself on the next backfill.
+  db.prepare(`INSERT INTO token_usage
       (folder_id,ts,session_id,topic,message_id,input_tokens,output_tokens,thinking_tokens,cache_read,cache_creation)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(message_id) DO UPDATE SET topic = excluded.topic`)
     .run(u.folderId, u.ts, u.sessionId ?? null, u.topic ?? null, u.messageId ?? null,
          u.inputTokens | 0, u.outputTokens | 0, u.thinkingTokens | 0, u.cacheRead | 0, u.cacheCreation | 0)
-  return r.changes > 0
+  return isNew
 }
 
 /** Tokens per task, biggest first. The topic IS the task. */

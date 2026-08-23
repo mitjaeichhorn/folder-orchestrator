@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { parseLine, slugify, noteFsEvent, attribute, _recent, topicOf, _setTopic, primeTopics, closeToolCall, _inFlightSize } from './transcripts.js'
+import { parseLine, slugify, noteFsEvent, attribute, _recent, topicOf, _setTopic, primeTopics, closeToolCall, _inFlightSize, topicFromRecord } from './transcripts.js'
 
 const asst = (tool, input, ts = '2026-08-23T10:00:00.000Z', sid = 'S1') => JSON.stringify({
   type: 'assistant', timestamp: ts, sessionId: sid,
@@ -180,6 +180,56 @@ test('primeTopics survives a malformed or partial trailing line', t => {
 
 test('primeTopics on a missing file returns 0 rather than throwing', () => {
   assert.equal(primeTopics('/nope/nope.jsonl'), 0)
+})
+
+// --- mid-turn messages ---------------------------------------------------
+const queued = (text, sid = 'Q1', mode = 'prompt') => JSON.stringify({
+  type: 'attachment', timestamp: '2026-08-23T10:00:00.000Z', sessionId: sid,
+  attachment: { type: 'queued_command', commandMode: mode, prompt: text }
+})
+
+test('a message sent mid-turn becomes the topic', () => {
+  // these never produce a last-prompt record, so without this their work is
+  // billed to whatever topic was active when the turn began
+  parseLine(queued('are we capable to know what task uses the most tokens?', 'Q1'), 'F')
+  assert.equal(topicOf('Q1'), 'are we capable to know what task uses the most tokens?')
+})
+
+test('a mid-turn message carrying an image still yields its text', () => {
+  parseLine(JSON.stringify({
+    type: 'attachment', timestamp: '2026-08-23T10:00:00.000Z', sessionId: 'Q2',
+    attachment: { type: 'queued_command', commandMode: 'prompt',
+      prompt: [{ type: 'image', source: {} }, { type: 'text', text: 'we have duplication here' }] }
+  }), 'F')
+  assert.equal(topicOf('Q2'), 'we have duplication here')
+})
+
+test('a queued record that is not a plain prompt is ignored', () => {
+  parseLine(queued('should not become a topic', 'Q3', 'bashCommand'), 'F')
+  assert.equal(topicOf('Q3'), null)
+})
+
+test('other attachment types never set a topic', () => {
+  for (const type of ['hook_success', 'total_tokens_reminder', 'skill_listing', 'edited_text_file']) {
+    parseLine(JSON.stringify({
+      type: 'attachment', timestamp: '2026-08-23T10:00:00.000Z', sessionId: 'Q4',
+      attachment: { type, content: 'noise' }
+    }), 'F')
+  }
+  assert.equal(topicOf('Q4'), null)
+})
+
+test('an empty queued prompt does not blank an existing topic', () => {
+  parseLine(queued('real topic', 'Q5'), 'F')
+  parseLine(queued('   ', 'Q5'), 'F')
+  assert.equal(topicOf('Q5'), 'real topic')
+})
+
+test('topicFromRecord distinguishes the two sources and nothing else', () => {
+  assert.equal(topicFromRecord({ type: 'last-prompt', lastPrompt: 'x' }), 'x')
+  assert.equal(topicFromRecord({ type: 'attachment', attachment: { type: 'queued_command', commandMode: 'prompt', prompt: 'y' } }), 'y')
+  assert.equal(topicFromRecord({ type: 'assistant' }), null)
+  assert.equal(topicFromRecord({ type: 'attachment', attachment: { type: 'hook_success' } }), null)
 })
 
 // --- attribution ---------------------------------------------------------

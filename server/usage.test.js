@@ -84,3 +84,14 @@ test('turns before the first prompt group under an empty topic, not under a gues
   db.insertUsage(D, { folderId: 'F', ts: 1, topic: null, messageId: 'a', outputTokens: 5 })
   assert.equal(db.usageByTopic(D, 'F')[0].topic, '')
 })
+
+test('re-reading corrects a topic without disturbing the token counts', t => {
+  const D = fresh(t)
+  db.insertUsage(D, { folderId: 'F', ts: 1, messageId: 'm', topic: 'wrong topic', outputTokens: 500 })
+  db.insertUsage(D, { folderId: 'F', ts: 1, messageId: 'm', topic: 'right topic', outputTokens: 500 })
+  const rows = db.usageByTopic(D, 'F')
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].topic, 'right topic', 'a better attribution wins')
+  assert.equal(rows[0].outputTokens, 500, 'but the tokens are still counted once')
+  assert.equal(rows[0].messages, 1)
+})
