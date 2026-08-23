@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
-import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
+import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
 import { heatStyle } from './heat-color'
@@ -123,7 +123,7 @@ export function HeatTree ({ folderId, events, running, hoverPath }: {
   // Heat is derived from the event list, in order. Recomputed from scratch so it
   // always matches what the feed shows — no separate accumulator to drift.
   const heat = useMemo(
-    () => prune(touchAll(emptyHeat(), events.map(e => e.path))),
+    () => prune(touchAll(emptyHeat(), heatPaths(events))),
     [events]
   )
 

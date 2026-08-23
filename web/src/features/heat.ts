@@ -1,3 +1,5 @@
+import { collapseBursts } from './collapse.ts'
+
 /**
  * Heat is measured in EVENTS AGO, never in seconds.
  *
@@ -40,6 +42,29 @@ export function touch (state: HeatState, path: string | null | undefined): HeatS
   // it — but only the exact path is what changed, and only it flashes
   for (const p of ancestors(path)) stamps.set(p, tick)
   return { tick, stamps, last: path }
+}
+
+/**
+ * The paths a run of events should stamp.
+ *
+ * A wholesale directory appearing is ONE thing happening, not N things. Creating
+ * a git worktree inside a watched folder wrote 500 files in a second; stamping
+ * each one lit 202 paths, so "Active only" showed most of the tree and the heat
+ * map answered "what was checked out" instead of "what is being worked on".
+ *
+ * So a burst — several same-kind events sharing a directory inside the burst
+ * window — stamps that directory once. The branch still lights up, which is
+ * true and useful; what it no longer does is drown every real edit around it.
+ *
+ * Deliberately the SAME `collapseBursts` the feed uses, not a second
+ * implementation: the two views must agree on what counts as one action.
+ */
+export function heatPaths (events: Array<{ path?: string | null; kind?: string; ts: number }>): Array<string | null | undefined> {
+  return collapseBursts(events as never[]).map(e =>
+    // a burst at the root has dir '' — nothing to stamp, and stamping '' would
+    // mark every path in the project
+    (e as { burst?: { dir: string } }).burst ? ((e as { burst: { dir: string } }).burst.dir || null) : e.path
+  )
 }
 
 /** Apply many events in order — used for the initial backfill. */

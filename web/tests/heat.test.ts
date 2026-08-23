@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
+import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT, heatPaths } from '../src/features/heat.ts'
 import { pruneToActive, activeFolders, shouldPulse } from '../src/features/prune-tree.ts'
 import { heatColor, heatStyle } from '../src/features/heat-color.ts'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/locate.ts'
@@ -319,4 +319,59 @@ test('the locate blue does not collide with the churn ramp', async () => {
 test('the target is emphasised more than the rest of its chain', () => {
   assert.ok(LOCATE_TARGET_CLASS.includes('ring'), 'the file itself gets a ring')
   assert.ok(!LOCATE_CHAIN_CLASS.includes('ring'), 'its ancestors do not')
+})
+
+test('a wholesale directory appearing stamps the directory, not every file in it', () => {
+  // Measured: creating a git worktree wrote 500 files in a second, lighting 202
+  // paths, so "Active only" showed most of the tree.
+  const ts = 1_000_000
+  const events = Array.from({ length: 40 }, (_, i) => ({
+    path: `.claude/worktrees/wt/docs/f${i}.md`, kind: 'created', actor: 'external', ts: ts + i
+  }))
+  const paths = heatPaths(events)
+  assert.equal(paths.length, 1, 'forty files under one directory is one thing happening')
+  assert.equal(paths[0], '.claude/worktrees/wt/docs')
+})
+
+test('a real edit beside a burst still stamps its own file', () => {
+  const ts = 1_000_000
+  const events = [
+    ...Array.from({ length: 10 }, (_, i) => ({
+      path: `gen/out/f${i}.js`, kind: 'created', actor: 'external', ts: ts + i
+    })),
+    { path: 'src/App.tsx', kind: 'modified', actor: 'claude', ts: ts + 20 }
+  ]
+  const paths = heatPaths(events)
+  assert.equal(paths.includes('src/App.tsx'), true, 'the edit must not be swallowed')
+  assert.equal(paths.includes('gen/out'), true)
+  assert.equal(paths.some(p => p?.startsWith('gen/out/f')), false, 'members are not stamped individually')
+})
+
+test('a handful of files below the burst minimum still stamp individually', () => {
+  const ts = 1_000_000
+  const events = [
+    { path: 'a/x.ts', kind: 'modified', actor: 'claude', ts },
+    { path: 'a/y.ts', kind: 'modified', actor: 'claude', ts: ts + 1 }
+  ]
+  assert.deepEqual(heatPaths(events), ['a/x.ts', 'a/y.ts'])
+})
+
+test('a burst at the project root stamps nothing rather than everything', () => {
+  // dirOf('README.md') is '', and stamping '' would mark every path in the tree.
+  const ts = 1_000_000
+  const events = Array.from({ length: 5 }, (_, i) => ({
+    path: `f${i}.md`, kind: 'created', actor: 'external', ts: ts + i
+  }))
+  assert.deepEqual(heatPaths(events), [null])
+})
+
+test('the collapse leaves the heat state usable — the branch is still lit', () => {
+  const ts = 1_000_000
+  const events = Array.from({ length: 20 }, (_, i) => ({
+    path: `wt/docs/f${i}.md`, kind: 'created', actor: 'external', ts: ts + i
+  }))
+  const s = touchAll(emptyHeat(), heatPaths(events))
+  assert.equal(heatOf(s, 'wt/docs'), 1, 'the directory is fully hot')
+  assert.equal(heatOf(s, 'wt'), 1, 'its ancestor too')
+  assert.equal(hasHeat(s, 'wt/docs/f3.md'), false, 'an individual member is not claimed as touched')
 })

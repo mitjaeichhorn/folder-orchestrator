@@ -94,6 +94,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   collapses consecutive same path+kind+actor rows inside 2s into one carrying a count. Never drop
   the data — the count is what makes the repetition visible. Tool, prompt and alert rows are
   never collapsed: each is separate work, however close together.
+- **Heat stamps a BURST once, on its directory.** A wholesale directory appearing is one thing
+  happening, not N things: creating a git worktree inside a watched folder wrote 500 files in a
+  second, lit 202 paths, and left "Active only" showing most of the tree — the map answered
+  "what was checked out" rather than "what is being worked on". `heatPaths` runs the *same*
+  `collapseBursts` the feed uses, deliberately not a second implementation, so the two views
+  agree on what counts as one action. A burst at the project root has `dir === ''` and stamps
+  nothing: stamping `''` would mark every path in the tree.
 - **An "active" branch is one that was touched at all, not one that is still bright.** `hasHeat`
   is membership in the stamp map, independent of how far it has dimmed. Because every ancestor of
   a touched path is stamped, filtering on it preserves the whole route to a changed file — no
