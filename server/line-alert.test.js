@@ -4,7 +4,10 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildTree } from './tree.js'
-import { countsForLineAlert, LINE_ALERT_AT, LINE_ALERT_EXEMPT } from '../shared/glob.js'
+import {
+  countsForLineAlert, LINE_ALERT_AT, LINE_ALERT_EXEMPT,
+  LINE_MEASURE_EXEMPT, LINE_BADGE_EXEMPT, isExecutablePath, isBadgeExempt
+} from '../shared/glob.js'
 
 const tmp = t => {
   const d = mkdtempSync(join(tmpdir(), 'orchl-'))
@@ -17,10 +20,13 @@ const filesOf = (nodes, out = []) => {
   return out
 }
 
-test('python, markdown, json and html are exempt however long they are', () => {
-  for (const ext of ['.py', '.pyi', '.md', '.markdown', '.json', '.jsonl', '.html', '.htm']) {
+test('markdown, json and html are never measured; all four stay unbadged', () => {
+  for (const ext of ['.md', '.markdown', '.json', '.jsonl', '.html', '.htm']) {
     assert.equal(countsForLineAlert(`a/b${ext}`), false, ext)
     assert.equal(countsForLineAlert(`a/b${ext.toUpperCase()}`), false, `${ext} uppercase`)
+  }
+  for (const ext of ['.py', '.pyi', '.md', '.json', '.jsonl', '.html']) {
+    assert.equal(isBadgeExempt(`a/b${ext}`), true, `${ext} must not carry the default badge`)
   }
   assert.deepEqual([...LINE_ALERT_EXEMPT].sort(), [...new Set(LINE_ALERT_EXEMPT)].sort(),
     'a duplicated extension means two people added the same exemption')
@@ -49,7 +55,7 @@ test('the tree reports a line count only for files over the threshold path', t =
     filesOf(buildTree({ id: 'f', path: d }).children).map(n => [n.n, n]))
 
   assert.equal(byName['big.ts'].l, LINE_ALERT_AT + 5, 'a long source file is counted')
-  assert.equal(byName['big.py'].l, undefined, 'python is exempt, so it is never measured')
+  assert.equal(byName['big.py'].l, LINE_ALERT_AT + 5, 'python is measured, just not badged')
   assert.equal(byName['big.json'].l, undefined, 'json is exempt')
   // small.ts is under the byte prefilter, so it is legitimately unmeasured —
   // absent means "not judged", which the client must not read as "short".
@@ -82,4 +88,45 @@ test('the count survives a subdirectory walk', t => {
   const [node] = filesOf(buildTree({ id: 'f', path: d }).children)
   assert.equal(node.p, 'src/deep.ts')
   assert.equal(node.l, LINE_ALERT_AT + 1)
+})
+
+test('python is measured even though it is not badged by default', () => {
+  // The two lists exist precisely so the executables filter can show long python
+  // while the default view keeps the operator's "except python" rule.
+  assert.equal(countsForLineAlert('a/b.py'), true, 'must be counted')
+  assert.equal(isBadgeExempt('a/b.py'), true, 'must not be badged by default')
+  assert.equal(isExecutablePath('a/b.py'), true, 'must appear under executables')
+})
+
+test('the executable list is code, not markup, styles, data or locks', () => {
+  for (const p of ['a.ts', 'a.tsx', 'a.js', 'a.py', 'a.go', 'a.rs', 'a.sh', 'a.rb', 'a.php']) {
+    assert.equal(isExecutablePath(p), true, p)
+  }
+  // measured on prj04-ecommerce: these are what the filter exists to drop —
+  // four vendored base.css copies and a lock file, long because generated.
+  for (const p of ['assets/base.css', 'uv.lock', 'sections/section.liquid',
+                   'x.json', 'x.md', 'x.html', 'x.yaml', 'x.svg', 'x.toml']) {
+    assert.equal(isExecutablePath(p), false, p)
+  }
+})
+
+test('a dot in a directory name is not an extension', () => {
+  assert.equal(isExecutablePath('my.dir/README'), false)
+  assert.equal(countsForLineAlert('my.dir/README'), false)
+  assert.equal(isExecutablePath('my.dir/run.sh'), true)
+})
+
+test('the exempt lists do not overlap — a file is measured or it is not', () => {
+  const overlap = LINE_MEASURE_EXEMPT.filter(e => LINE_BADGE_EXEMPT.includes(e))
+  assert.deepEqual(overlap, [], 'an extension in both lists is measured and unbadged by accident')
+})
+
+test('a long python file gets a count in the tree', t => {
+  const d = tmp(t)
+  writeFileSync(join(d, 'big.py'), lines(LINE_ALERT_AT + 3))
+  writeFileSync(join(d, 'big.md'), lines(LINE_ALERT_AT + 3))
+  const byName = Object.fromEntries(
+    filesOf(buildTree({ id: 'f', path: d }).children).map(n => [n.n, n]))
+  assert.equal(byName['big.py'].l, LINE_ALERT_AT + 3, 'python is now counted')
+  assert.equal(byName['big.md'].l, undefined, 'markdown still is not')
 })

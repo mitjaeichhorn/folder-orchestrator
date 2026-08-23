@@ -64,27 +64,70 @@ export function isMarkdownPath (p) {
 export const LINE_ALERT_AT = 1000
 
 /**
- * Extensions exempt from the long-file alert, because length is normal for them
- * rather than a smell:
+ * Never measured at all — documents and data, where length says nothing.
  *
- * - `.py` and markdown — the operator's call.
- * - `.json` / `.jsonl` — data, not code. A line-delimited log is thousands of
- *   lines *by definition*; measured on prj04-ecommerce, the five longest files
- *   in the project were all append-only `.jsonl` logs, which would have made the
- *   alert read as noise on its first run.
- * - `.html` — markup length says nothing about complexity.
+ * `.jsonl` sits here with `.json` for a reason found by measuring: a
+ * line-delimited log is thousands of lines *by definition*, and on
+ * prj04-ecommerce the five longest files in the project were all append-only
+ * `.jsonl` logs, which would have made the alert read as noise on its first run.
  */
-export const LINE_ALERT_EXEMPT = [
-  '.py', '.pyi', '.pyw',
+export const LINE_MEASURE_EXEMPT = [
   ...MARKDOWN_EXTS,
   '.json', '.jsonl',
   '.html', '.htm'
 ]
 
-/** Should this path be measured for the long-file alert at all? */
-export function countsForLineAlert (p) {
-  if (typeof p !== 'string') return false
+/**
+ * Measured, but not badged in the default view — the operator's call that a long
+ * python file is normal. They stay counted so the executables filter can show
+ * them, which is the whole reason measurement and display are separate lists.
+ */
+export const LINE_BADGE_EXEMPT = ['.py', '.pyi', '.pyw']
+
+/** Kept for callers that want the default view's full exclusion set. */
+export const LINE_ALERT_EXEMPT = [...LINE_MEASURE_EXEMPT, ...LINE_BADGE_EXEMPT]
+
+/**
+ * Code that runs, as opposed to markup, styles, data and lock files.
+ *
+ * The distinction earns its place: filtering prj04-ecommerce's long files by it
+ * drops four near-identical vendored `base.css` copies and a `uv.lock`, which
+ * are long because they are generated, not because anyone should split them.
+ */
+export const EXECUTABLE_EXTS = [
+  '.py', '.pyi', '.pyw',
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+  '.rb', '.go', '.rs', '.java', '.kt', '.swift', '.scala',
+  '.c', '.cc', '.cpp', '.h', '.hpp', '.cs',
+  '.php', '.pl', '.lua', '.ex', '.exs',
+  '.sh', '.bash', '.zsh',
+  '.vue', '.svelte'
+]
+
+const extOf = p => {
+  if (typeof p !== 'string') return null
   const i = p.lastIndexOf('.')
-  if (i === -1) return false                    // no extension: not source we judge
-  return !LINE_ALERT_EXEMPT.includes(p.slice(i).toLowerCase())
+  if (i === -1) return null
+  const slash = p.lastIndexOf('/')
+  if (i < slash) return null                    // ".../my.dir/README" has no extension
+  return p.slice(i).toLowerCase()
+}
+
+/** Does this file run? */
+export function isExecutablePath (p) {
+  const e = extOf(p)
+  return e !== null && EXECUTABLE_EXTS.includes(e)
+}
+
+/** Is this file exempt from the badge in the default view? */
+export function isBadgeExempt (p) {
+  const e = extOf(p)
+  return e === null || LINE_ALERT_EXEMPT.includes(e)
+}
+
+/** Should this path be measured at all? Python IS measured — see the two lists. */
+export function countsForLineAlert (p) {
+  const e = extOf(p)
+  if (e === null) return false                  // no extension: not source we judge
+  return !LINE_MEASURE_EXEMPT.includes(e)
 }

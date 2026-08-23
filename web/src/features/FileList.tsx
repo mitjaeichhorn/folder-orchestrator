@@ -10,11 +10,13 @@ import { Thumb } from './Thumb'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
-import { isImagePath, LINE_ALERT_AT } from '@shared/glob.js'
+import { isImagePath, LINE_ALERT_AT, isExecutablePath, isBadgeExempt } from '@shared/glob.js'
 
 /** A page at a time: thousands of rows would stall the tab, and the tail is
     rarely read. "Show more" extends rather than truncating. */
 const PAGE = 100
+
+type FileRowLike = { path: string; lines?: number }
 
 /**
  * Every file in the project, most recently changed first, shaded by how often we
@@ -62,13 +64,20 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
   // Long files sort by size, not recency: the point of the filter is to find the
   // worst offender, and their mtimes are by definition old — that is why they
   // were invisible in the default order (earliest sat at row 558 of 4,783).
+  const bySize = (a: FileRowLike, b: FileRowLike) => (b.lines ?? 0) - (a.lines ?? 0)
+  const over = (r: FileRowLike) => typeof r.lines === 'number' && r.lines > LINE_ALERT_AT
   const longRows = useMemo(
-    () => rows.filter(r => typeof r.lines === 'number' && r.lines > LINE_ALERT_AT)
-      .sort((a, b) => (b.lines ?? 0) - (a.lines ?? 0)),
-    [rows]
-  )
-  const [onlyLong, setOnlyLong] = useState(false)
-  const view = onlyLong ? longRows : rows
+    () => rows.filter(r => over(r) && !isBadgeExempt(r.path)).sort(bySize), [rows])
+  // Python is measured but not badged by default, so it appears here and only
+  // here — which is the whole point of keeping measurement and display apart.
+  const execRows = useMemo(
+    () => rows.filter(r => over(r) && isExecutablePath(r.path)).sort(bySize), [rows])
+
+  const [mode, setMode] = useState<'all' | 'long' | 'exec'>('all')
+  const view = mode === 'long' ? longRows : mode === 'exec' ? execRows : rows
+  // a row is badged when it qualifies under the lens currently applied
+  const badged = (r: FileRowLike) =>
+    over(r) && (mode === 'exec' ? isExecutablePath(r.path) : !isBadgeExempt(r.path))
 
   // the tree is only refetched on a debounce, so it can still list a file we
   // have already watched being deleted
@@ -92,7 +101,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
   useEffect(() => { setLimit(PAGE); seen.current = new Map() }, [folderId])
   // a filter change starts from the top again, or page 6 of one list becomes
   // page 6 of a list with 43 entries
-  useEffect(() => { setLimit(PAGE) }, [onlyLong])
+  useEffect(() => { setLimit(PAGE) }, [mode])
   const shown = view.slice(0, limit)
 
   if (error) return <p className="text-muted-foreground p-8 text-center text-sm">{t('files.error')}</p>
@@ -105,10 +114,17 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
         <span>{t('files.count', { n: view.length })}</span>
         {shown.length < view.length && <span>{t('files.showing', { n: shown.length })}</span>}
         {longRows.length > 0 && (
-          <Button size="sm" variant={onlyLong ? 'secondary' : 'ghost'}
+          <Button size="sm" variant={mode === 'long' ? 'secondary' : 'ghost'}
             className="h-5 px-1.5 text-xs"
-            onClick={() => setOnlyLong(v => !v)}>
+            onClick={() => setMode(m => (m === 'long' ? 'all' : 'long'))}>
             {t('files.longCount', { n: fmtNum(longRows.length), at: fmtNum(LINE_ALERT_AT) })}
+          </Button>
+        )}
+        {execRows.length > 0 && (
+          <Button size="sm" variant={mode === 'exec' ? 'secondary' : 'ghost'}
+            className="h-5 px-1.5 text-xs"
+            onClick={() => setMode(m => (m === 'exec' ? 'all' : 'exec'))}>
+            {t('files.execCount', { n: fmtNum(execRows.length), at: fmtNum(LINE_ALERT_AT) })}
           </Button>
         )}
         <span className="ml-auto flex items-center gap-1.5">
@@ -162,7 +178,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
             </span>
 
             {/* The count is the point: "long" is a judgement, 6,314 is a fact. */}
-            {typeof f.lines === 'number' && f.lines > LINE_ALERT_AT && (
+            {typeof f.lines === 'number' && badged(f) && (
               <Badge variant="outline"
                 className="text-muted-foreground shrink-0 tabular-nums"
                 title={t('files.longFile', { n: fmtNum(f.lines), at: fmtNum(LINE_ALERT_AT) })}>

@@ -8,6 +8,11 @@ declare module '@shared/glob.js' {
   export const LINE_ALERT_AT: number
   export const LINE_ALERT_EXEMPT: string[]
   export function countsForLineAlert (p: unknown): boolean
+  export const LINE_MEASURE_EXEMPT: string[]
+  export const LINE_BADGE_EXEMPT: string[]
+  export const EXECUTABLE_EXTS: string[]
+  export function isExecutablePath (p: unknown): boolean
+  export function isBadgeExempt (p: unknown): boolean
   export function matchEvent (e: any, f?: {
     kinds?: string[]; pathGlob?: string; since?: number; actor?: string; sessionId?: string
   }): boolean

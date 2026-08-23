@@ -129,6 +129,12 @@ Keep it at this file count. New concerns go into an existing file until it genui
   change: 591ms cold, 170ms warm on a 4,783-file project. `.jsonl` is exempt with `.json` —
   a line-delimited log is thousands of lines by definition, and the five longest files in the
   test project were all append-only logs.
+- **Measuring a file and badging it are two lists, not one.** Python is counted but carries no
+  badge in the default view — the operator's call — which is exactly why the executables filter
+  can show it: 40 of that project's 58 long executables are `.py`, and a single exemption list
+  would have made them unreachable rather than merely unbadged. `isExecutablePath` is what
+  separates code from generated bulk: it drops four vendored `base.css` copies and a `uv.lock`
+  that are long because they are generated, not because anyone should split them.
 - **The heat tree refetches only on structural change.** created/deleted/renamed change the
   shape; modified never does. Debounced, or a build refetches the tree hundreds of times.
 - **Markdown from a watched folder is untrusted input to our page.** A watched tree can be any
