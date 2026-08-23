@@ -102,7 +102,7 @@ test('filesystem events are never authored text', () => {
   }
 })
 
-test('the authored tone is neon green and italic', () => {
+test('the authored tone is neon green, upright', () => {
   assert.match(AUTHORED_TONE, /lime/, 'neon green')
-  assert.match(AUTHORED_TONE, /italic/)
+  assert.doesNotMatch(AUTHORED_TONE, /italic/)
 })
