@@ -6,13 +6,15 @@ import { Badge } from '@/components/ui/badge'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel,
   SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarProvider, SidebarRail, SidebarTrigger
+  SidebarMenuAction, SidebarProvider, SidebarRail, SidebarTrigger
 } from '@/components/ui/sidebar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { StreamProvider } from '@/hooks/StreamProvider'
 import { useStream } from '@/hooks/useStream'
 import { AddFolderDialog } from '@/features/AddFolderDialog'
+import { RemoveFolderDialog } from '@/features/RemoveFolderDialog'
+import { Trash2 } from 'lucide-react'
 import { Feed } from '@/features/Feed'
 import { DetailPanel } from '@/features/DetailPanel'
 import { Sessions } from '@/features/Sessions'
@@ -137,6 +139,7 @@ export default function App () {
   const [folders, setFolders] = useState<Folder[]>([])
   const [activeId, setActiveId] = useState<string | null>(() => folderFromHash(window.location.hash))
   const [dialog, setDialog] = useState(false)
+  const [removing, setRemoving] = useState<Folder | null>(null)
   const [offline, setOffline] = useState(false)
 
   const load = useCallback(async () => {
@@ -204,6 +207,11 @@ export default function App () {
                               : t('sidebar.idle')}
                         </span>
                       </SidebarMenuButton>
+                      <SidebarMenuAction showOnHover title={t('remove.action')}
+                        onClick={e => { e.stopPropagation(); setRemoving(f) }}>
+                        <Trash2 />
+                        <span className="sr-only">{t('remove.action')}</span>
+                      </SidebarMenuAction>
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
@@ -232,6 +240,7 @@ export default function App () {
       </SidebarInset>
 
       <AddFolderDialog open={dialog} onOpenChange={setDialog} onAdded={load} />
+      <RemoveFolderDialog folder={removing} onClose={() => setRemoving(null)} onRemoved={load} />
       <Toaster theme="dark" position="top-right" />
       </div>
     </SidebarProvider>

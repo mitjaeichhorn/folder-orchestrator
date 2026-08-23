@@ -156,5 +156,12 @@
   "feed.burstFiles": "{n} files",
   "detail.burstFiles": "{n} files in this change",
   "detail.title": "Event detail",
-  "feed.runningFor": "running {d}"
+  "feed.runningFor": "running {d}",
+  "remove.action": "Remove project",
+  "remove.title": "Stop watching {name}?",
+  "remove.body": "This project will be removed from the sidebar and no longer monitored.",
+  "remove.safe": "Nothing on disk is touched \u2014 the folder and its files are left exactly as they are.",
+  "remove.purge": "Also delete its recorded history",
+  "remove.cancel": "Cancel",
+  "remove.confirm": "Stop watching"
 }

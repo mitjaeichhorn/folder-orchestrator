@@ -56,7 +56,8 @@ export const api = {
     req<Folder>('/api/folders', { method: 'POST', body: JSON.stringify(body) }),
   patchFolder: (id: string, body: Partial<Pick<Folder, 'enabled' | 'name' | 'ignore'>>) =>
     req<Folder>(`/api/folders/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  removeFolder: (id: string) => req<void>(`/api/folders/${id}`, { method: 'DELETE' }),
+  removeFolder: (id: string, purge = false) =>
+    req<void>(`/api/folders/${id}${purge ? '?purge=1' : ''}`, { method: 'DELETE' }),
   events: (folderId: string, opts: { limit?: number; before?: number; session?: string } = {}) => {
     const q = new URLSearchParams({ folder: folderId })
     if (opts.limit) q.set('limit', String(opts.limit))

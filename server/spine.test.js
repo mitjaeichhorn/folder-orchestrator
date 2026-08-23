@@ -120,3 +120,35 @@ test('a restart closes tool calls left running, without claiming they succeeded'
   assert.equal(byId[done].state, 'done', 'a finished call is untouched')
   assert.equal(byId[done].durationMs, 12)
 })
+
+test('removing a folder keeps its events unless purge is asked for', t => {
+  const D = fresh(t)
+  const f = db.addFolder(D, { path: '/tmp' })
+  db.insertEvent(D, { folderId: f.id, ts: 1, kind: 'modified', path: 'a.txt' })
+  assert.equal(db.removeFolder(D, f.id, false), true)
+  assert.equal(db.listEvents(D, { folderId: f.id }).length, 1, 'history survives by default')
+})
+
+test('removing a folder with purge deletes its events and only its events', t => {
+  const D = fresh(t)
+  const a = db.addFolder(D, { path: '/tmp' })
+  db.insertEvent(D, { folderId: a.id, ts: 1, kind: 'modified', path: 'a.txt' })
+  db.insertEvent(D, { folderId: 'other', ts: 1, kind: 'modified', path: 'b.txt' })
+  db.removeFolder(D, a.id, true)
+  assert.equal(db.listEvents(D, { folderId: a.id }).length, 0)
+  assert.equal(db.listEvents(D, { folderId: 'other' }).length, 1, 'another folder is untouched')
+})
+
+test('removing a folder drops its rules but not another folder’s', t => {
+  const D = fresh(t)
+  const f = db.addFolder(D, { path: '/tmp' })
+  db.addRule(D, { folderId: f.id, kinds: [], pathGlob: '**', label: 'mine' })
+  db.addRule(D, { folderId: null, kinds: [], pathGlob: '**', label: 'global' })
+  db.removeFolder(D, f.id, false)
+  assert.deepEqual(db.listRules(D).map(r => r.label), ['global'])
+})
+
+test('removing a folder that does not exist reports false rather than throwing', t => {
+  const D = fresh(t)
+  assert.equal(db.removeFolder(D, 'no-such-id', true), false)
+})
