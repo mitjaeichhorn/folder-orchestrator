@@ -52,5 +52,11 @@
   "detail.preview": "Vorschau",
   "heat.title": "Projekt-Heatmap",
   "heat.loading": "Baum wird gelesen…",
-  "heat.toggle": "Heatmap"
+  "heat.toggle": "Heatmap",
+  "lightbox.close": "Schließen",
+  "lightbox.hint": "Klicken oder Esc zum Schließen",
+  "detail.copyFile": "Dateipfad kopieren",
+  "detail.copyFolder": "Ordnerpfad kopieren",
+  "detail.copiedFile": "Dateipfad kopiert",
+  "detail.copiedFolder": "Ordnerpfad kopiert"
 }

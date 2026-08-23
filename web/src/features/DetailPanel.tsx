@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -5,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type OrchEvent, type Folder } from '@/lib/api'
 import { isImagePath } from '@shared/glob.js'
 import { Thumb } from './Thumb'
+import { Lightbox } from './Lightbox'
+import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
 
 function Diff ({ oldS, newS }: { oldS?: { text?: string; truncated?: boolean }; newS?: { text?: string; truncated?: boolean } }) {
@@ -31,6 +35,20 @@ export function DetailPanel ({ event, folder, onMute }: {
   folder: Folder
   onMute: (pattern: string) => void
 }) {
+  // Its own lightbox: DetailPanel is a sibling of Feed, not a child, so there is
+  // no shared state to lift — and two overlays can never both be open anyway.
+  const [zoom, setZoom] = useState<string | null>(null)
+
+  // navigator.clipboard needs a secure context; localhost qualifies, but a
+  // failure must say so rather than silently copying nothing.
+  const copy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(t(label), { description: text })
+    } catch {
+      toast.error(t('detail.copyFailed'), { description: text })
+    }
+  }
   if (!event) {
     return <p className="text-muted-foreground p-8 text-center text-sm">{t('detail.none')}</p>
   }
@@ -64,7 +82,7 @@ export function DetailPanel ({ event, folder, onMute }: {
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs uppercase">{t('detail.preview')}</p>
             <div className="bg-muted/40 flex justify-center rounded-md border p-2">
-              <Thumb folderId={folder.id} path={event.path} size={0}
+              <Thumb folderId={folder.id} path={event.path} size={0} onOpen={setZoom}
                 className="h-auto max-h-72 w-auto max-w-full object-contain" />
             </div>
           </div>
@@ -94,10 +112,18 @@ export function DetailPanel ({ event, folder, onMute }: {
               {t('detail.openEditor')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => api.reveal(abs)}>{t('detail.reveal')}</Button>
+            <Button size="sm" variant="outline" onClick={() => copy(abs, 'detail.copiedFile')}>
+              <Copy className="size-3" />{t('detail.copyFile')}
+            </Button>
+            <Button size="sm" variant="outline"
+              onClick={() => copy(abs.slice(0, abs.lastIndexOf('/')) || folder.path, 'detail.copiedFolder')}>
+              <Copy className="size-3" />{t('detail.copyFolder')}
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => onMute(event.path!)}>{t('detail.mute')}</Button>
           </div>
         )}
       </div>
+      <Lightbox folderId={folder.id} path={zoom} onClose={() => setZoom(null)} />
     </ScrollArea>
   )
 }

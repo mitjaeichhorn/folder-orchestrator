@@ -10,11 +10,12 @@ import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-export function Tree ({ events, selected, onSelect, folderId }: {
+export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
   events: OrchEvent[]
   selected: OrchEvent | null
   onSelect: (e: OrchEvent) => void
   folderId: string
+  onZoom?: (path: string) => void
 }) {
   const topics = useMemo(() => groupByTopic(events), [events])
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -57,7 +58,7 @@ export function Tree ({ events, selected, onSelect, folderId }: {
                     className="hover:bg-muted/40 flex w-full items-center gap-2 py-1 pr-3 pl-8 text-left">
                     {fOpen ? <ChevronDown className="size-3 shrink-0 opacity-50" /> : <ChevronRight className="size-3 shrink-0 opacity-50" />}
                     {fg.path !== NO_FILE && isImagePath(fg.path) && (
-                      <Thumb folderId={folderId} path={fg.path} size={18} />
+                      <Thumb folderId={folderId} path={fg.path} size={18} onOpen={onZoom} />
                     )}
                     <span className="min-w-0 flex-1 truncate text-xs">
                       {fg.path === NO_FILE

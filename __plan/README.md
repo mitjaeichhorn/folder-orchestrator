@@ -52,6 +52,20 @@ written against it. Parallelising before it is stable produces code with the wro
 **Continuous:** the no-hardcoded-strings check (Epic 03 installs it, every UI epic widens its
 scope), and the `logs/orchestrator.jsonl` audit trail (Epic 00 installs it, every epic writes to it).
 
+## Added after the plan (post-build session)
+
+Requested during the build, implemented with the same DoD discipline. Each is backed by tests.
+
+| Feature | Where | Note |
+|---|---|---|
+| Topic grouping (`topic → file → actions`) | `transcripts.js`, `group-by-file.ts`, `Tree.tsx` | Topic is the operator's prompt, verbatim from `last-prompt`. Primed on startup so a restart keeps it. |
+| Proportional timeline | `timeline.ts`, `Feed.tsx` | Row height carries elapsed time; dashed rule capped at 60s. |
+| Muted directories | `FilePath.tsx` | Folder dim, filename bright, everywhere a path renders. |
+| Image thumbnails + lightbox | `serve-file.js`, `Thumb.tsx`, `Lightbox.tsx` | `/api/file` is an extension allow-list, path-validated, realpath both sides. |
+| Project heatmap column | `tree.js`, `heat.ts`, `HeatTree.tsx` | Heat in events-ago, not seconds. Dimming means other work happened. |
+| Copy file / folder path | `DetailPanel.tsx` | Clipboard failure surfaces a toast rather than copying nothing. |
+| Zero-LLM enforcement | `no-llm.test.js` | Scans sources for inference APIs; asserts no server deps. |
+
 ## Current Blockers (priority order)
 
 1. Nothing is blocking. The system runs end to end: `npm start`, open `localhost:4000`.
@@ -63,19 +77,22 @@ scope), and the `logs/orchestrator.jsonl` audit trail (Epic 00 installs it, ever
 ## Last Audited
 
 <!-- UPDATE THIS EVERY SESSION -->
-**2026-08-23 (build session)** — all seven epics implemented. **65 tests passing**
-(48 server + 17 web), 0 failures, stable across 5 consecutive runs. Activation runs completed
+**2026-08-23 (build session)** — all seven epics implemented, plus the post-plan features
+above. **124 tests passing** (77 server + 47 web), 0 failures, stable across repeated runs. Activation runs completed
 for Epics 00–03 against real data; evidence recorded in each EPIC.md. Server has **zero npm
 dependencies**.
 
-Three real bugs were found by the DoD checks and fixed — recorded in the epics:
-rename-by-basename (should be inode), rules re-seeding after deletion (`PRAGMA user_version`
-now marks it), and a nested `setState` in the stream buffer that silently emptied the feed.
+Five real bugs were found by the DoD checks and fixed — recorded in the epics:
+rename-by-basename (should be inode); rules re-seeding after deletion (`PRAGMA user_version`
+now marks it); a nested `setState` in the stream buffer that silently emptied the feed; the
+symlink containment check comparing a realpath against an unresolved root, which refused every
+legitimate file under macOS's `/var` symlink; and topics staying null forever because tailing
+starts at EOF.
 
 ## Session-start protocol
 
 1. Read this status table.
-2. Run `npm test` — know what passes right now (expect 48 + 17).
+2. Run `npm test` — know what passes right now (expect 77 + 47).
 3. `git log --oneline -10`.
 4. Update the table if it is stale. **The table is the source of truth for project state.**
 5. Then pick work.

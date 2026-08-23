@@ -9,6 +9,7 @@ import { GLYPH, TONE, rowText } from './event-view'
 import { gaps, gapPx, fmtGap, isCapped } from './timeline'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
+import { Lightbox } from './Lightbox'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime } from '@/i18n'
@@ -33,6 +34,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
   const [pathGlob, setPathGlob] = useState('')
   const [windowMs, setWindowMs] = useState(0)
   const [view, setView] = useState<'timeline' | 'tree'>('timeline')
+  const [zoom, setZoom] = useState<string | null>(null)
   const [pinned, setPinned] = useState(true)
   const [unseen, setUnseen] = useState(0)
   const viewport = useRef<HTMLDivElement>(null)
@@ -106,7 +108,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
 
       <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
         {view === 'tree'
-          ? <Tree events={rows} selected={selected} onSelect={onSelect} folderId={folderId} />
+          ? <Tree events={rows} selected={selected} onSelect={onSelect} folderId={folderId} onZoom={setZoom} />
           : rows.length === 0
             ? <p className="text-muted-foreground p-8 text-center text-sm">
                 {events.length === 0 ? t('feed.empty') : t('feed.emptyFiltered')}
@@ -142,7 +144,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
                     <td className="max-w-0 py-1 pr-2 align-top">
                       <div className="flex min-w-0 items-center gap-2" title={rowText(e)}>
                         {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
-                          <Thumb folderId={folderId} path={e.path} />
+                          <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
                         )}
                         <span className="truncate font-mono text-xs">
                           {e.path && e.kind !== 'tool'
@@ -170,6 +172,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
           <p className="text-muted-foreground border-t p-3 text-center text-xs">{t('feed.olderInHistory')}</p>
         )}
       </div>
+      <Lightbox folderId={folderId} path={zoom} onClose={() => setZoom(null)} />
     </div>
   )
 }
