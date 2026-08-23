@@ -1,32 +1,61 @@
 # Folder Orchestrator
 
-**Watch what an AI coding agent is actually doing to your files, in real time, without asking a model anything.**
+**"Where is Claude Code right now — and is the loop actually doing what I asked?"**
 
-A local dashboard for macOS. Point it at project folders and it streams every filesystem event to
-full depth, joined against Claude Code's own transcripts, so you can see which files changed, which
-tool call was running when they changed, what the operator asked for, and what it cost in tokens.
+I kept asking myself that. You set an agent running, it goes quiet for twenty minutes, and the
+terminal scrolls past faster than anyone reads. Is it still on the task I gave it, or has it been
+rewriting test fixtures for the last ten minutes? Which files has it actually touched? Is it
+*working*, or is it stuck in a loop repairing something it broke three steps ago?
+
+I could never answer that without stopping the run and going digging. So I built the thing that
+answers it while the work is still happening.
+
+Point it at your project folders. It watches every file to full depth, reads Claude Code's own
+transcripts, and joins the two — so at any moment you can see what the agent is doing *now*, what
+it has changed, what you asked it for, and what it has cost.
+
+macOS, localhost, one operator. No LLM anywhere in it.
 
 ![Timeline](docs/screenshots/01-timeline.png)
 
 ---
 
-## Why this exists
+## What it actually answers
 
-When an agent works on a repository for an hour, the terminal tells you what it *said* it did. The
-filesystem knows what actually happened. Those are different, and the gap is where the surprises
-live — the formatter that rewrote forty files, the test run that regenerated a fixture, the edit to
-a file nobody mentioned.
+**"Where is it right now?"** — the currently running tool call, with a live counter of how long it
+has been going, and a pulse on the specific files being written. Long gaps show up as measured
+vertical distance between rows, so a stall looks like a stall instead of looking like nothing.
 
-Existing options don't close that gap. A file watcher tells you a path changed but not who changed
-it or why. The agent's own log tells you what it intended but not what landed. Git tells you the
-end state after the fact. This sits in the middle: **the filesystem's record and the agent's record,
-joined on time, shown live.**
+**"Is it doing what I asked?"** — every action is filed under your prompt, taken verbatim from the
+transcript. If the agent has wandered off the task, the topic it is filed under says so.
 
-The second reason is that a lot of "observability" tooling answers questions by asking a language
-model to summarise. That is expensive, non-deterministic, and — for the question *"which files just
-changed"* — completely unnecessary. The filesystem already knows. This project is a demonstration
-that the interesting version of this problem is a joining and rendering problem, not an inference
-problem.
+**"What has it touched?"** — the project tree, brightest where work just landed, so drift into an
+unexpected corner of the repo is visible as a bright branch somewhere you were not expecting one.
+
+**"Is it stuck in a loop?"** — files ranked by *how many times* they changed. A file being rewritten
+eleven times is telling you something a file written once is not.
+
+**"What did that cost?"** — token usage per task, read from the transcript, joined to the prompt.
+
+---
+
+## Why it works this way
+
+Two records exist of any agent session, and they disagree. The terminal tells you what the agent
+*said* it did. The filesystem knows what actually landed. The gap between them is exactly where the
+surprises live — the formatter that rewrote forty files, the test run that regenerated a fixture,
+the edit to a file nobody mentioned.
+
+Nothing I tried closed that gap. A file watcher tells you a path changed but not who changed it. The
+agent's log tells you what it intended but not what happened. Git tells you the end state, after the
+fact, once it is too late to intervene. This sits in the middle: **the filesystem's record and the
+agent's record, joined on time, shown live.**
+
+And it does that without asking a model anything. A lot of "observability" tooling answers questions
+by having an LLM summarise them — expensive, non-deterministic, and for *"which files just changed"*
+entirely unnecessary. The filesystem already knows. This is a joining and rendering problem, not an
+inference problem, and the whole project is an argument that treating it that way gets you a better
+answer for free.
 
 ## Hard constraints
 
