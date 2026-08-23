@@ -8,7 +8,10 @@ export { globToRe }
 export const DENY_DIRS = ['node_modules', '.git', 'dist', 'build', '.next', '.vite', 'coverage', '.turbo', 'vendor']
 // Atomic-save editors write `foo.md.tmp.77` then rename. The temp file is an
 // implementation detail of the save, never a change the operator made.
-export const DENY_GLOBS = ['*.log', '*.swp', '*~', '.DS_Store', '*.tmp', '*.tmp.*', '.*.swp', '*.crswap']
+// `.!2248!name.ts` is an atomic-write artifact too — same class as `.tmp.NN`,
+// different editor. Both are implementation details of a save, not a change.
+export const DENY_GLOBS = ['*.log', '*.swp', '*~', '.DS_Store', '*.tmp', '*.tmp.*',
+  '.*.swp', '*.crswap', '.!*!*', '.goutputstream-*', '*.sb-*']
 
 function parseGitignore (root) {
   const file = join(root, '.gitignore')

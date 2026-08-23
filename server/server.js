@@ -7,6 +7,8 @@ import * as bus from './bus.js'
 import * as watcher from './watcher.js'
 import * as transcripts from './transcripts.js'
 import * as rules from './rules.js'
+import { serveImage } from './serve-file.js'
+import { buildTree } from './tree.js'
 import { log } from './log.js'
 
 const PORT = Number(process.env.ORCH_PORT || 4000)
@@ -133,6 +135,16 @@ const server = createServer(async (req, res) => {
     } else if (p.startsWith('/api/rules/') && req.method === 'DELETE') {
       db.removeRule(database, p.split('/')[3]); rules.reload()
       status = 204; res.writeHead(204).end()
+
+    } else if (p === '/api/tree' && req.method === 'GET') {
+      const folder = db.getFolder(database, url.searchParams.get('folder'))
+      status = folder ? json(res, 200, buildTree(folder)) : json(res, 404, { code: 'NOT_FOUND' })
+
+    // --- image bytes, allow-listed extensions only, never leaves the folder
+    } else if (p === '/api/file' && req.method === 'GET') {
+      const folder = db.getFolder(database, url.searchParams.get('folder'))
+      if (!folder) { status = 404; res.writeHead(404).end() }
+      else status = serveImage(res, folder, url.searchParams.get('path'))
 
     // --- reveal (read-only shell-out, no writes into the watched tree)
     } else if (p === '/api/reveal' && req.method === 'POST') {

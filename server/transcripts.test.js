@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { parseLine, slugify, noteFsEvent, attribute, _recent } from './transcripts.js'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { parseLine, slugify, noteFsEvent, attribute, _recent, topicOf, _setTopic, primeTopics } from './transcripts.js'
 
 const asst = (tool, input, ts = '2026-08-23T10:00:00.000Z', sid = 'S1') => JSON.stringify({
   type: 'assistant', timestamp: ts, sessionId: sid,
@@ -72,6 +74,75 @@ test('multiple tool_use blocks in one record yield multiple events', () => {
     ] }
   })
   assert.equal(parseLine(line, 'F').events.length, 2)
+})
+
+// --- topic ---------------------------------------------------------------
+const lastPrompt = (text, sid = 'T1') => JSON.stringify({ type: 'last-prompt', lastPrompt: text, sessionId: sid })
+
+test('a last-prompt record sets the topic and emits no event', () => {
+  const r = parseLine(lastPrompt('build the watcher', 'T1'), 'F')
+  assert.equal(r.events, undefined, 'the topic record is not itself an event')
+  assert.equal(r.skip, 'topic_recorded')
+  assert.equal(topicOf('T1'), 'build the watcher')
+})
+
+test('the topic is stamped onto every tool call that follows it', () => {
+  parseLine(lastPrompt('fix the feed', 'T2'), 'F')
+  const e = parseLine(asst('Bash', { command: 'ls' }, '2026-08-23T10:00:00.000Z', 'T2'), 'F').events[0]
+  assert.equal(e.topic, 'fix the feed')
+})
+
+test('a later prompt replaces the topic for that session only', () => {
+  parseLine(lastPrompt('first thing', 'T3'), 'F')
+  parseLine(lastPrompt('second thing', 'T3'), 'F')
+  parseLine(lastPrompt('other session', 'T4'), 'F')
+  assert.equal(topicOf('T3'), 'second thing')
+  assert.equal(topicOf('T4'), 'other session')
+})
+
+test('a multi-line prompt is reduced to its first line and capped', () => {
+  parseLine(lastPrompt('the headline\nthen a lot of detail\nand more', 'T5'), 'F')
+  assert.equal(topicOf('T5'), 'the headline')
+  parseLine(lastPrompt('x'.repeat(400), 'T6'), 'F')
+  assert.equal(topicOf('T6').length, 160, 'capped, never unbounded')
+})
+
+test('an unknown session has no topic rather than a borrowed one', () => {
+  assert.equal(topicOf('never-seen'), null)
+})
+
+test('the topic is transcribed verbatim, never summarised', () => {
+  const raw = 'create clear epics and task based on htdocs/__claude_setup description'
+  parseLine(lastPrompt(raw, 'T7'), 'F')
+  assert.equal(topicOf('T7'), raw, 'must be the exact prompt text')
+})
+
+test('primeTopics recovers the current topic from an existing transcript', t => {
+  const d = mkdtempSync(join(tmpdir(), 'orcht-'))
+  t.after(() => rmSync(d, { recursive: true, force: true }))
+  const f = join(d, 's.jsonl')
+  writeFileSync(f, [
+    JSON.stringify({ type: 'last-prompt', lastPrompt: 'an older topic', sessionId: 'P1' }),
+    JSON.stringify({ type: 'assistant', sessionId: 'P1', message: { content: [] } }),
+    JSON.stringify({ type: 'last-prompt', lastPrompt: 'the current topic', sessionId: 'P1' }),
+    JSON.stringify({ type: 'last-prompt', lastPrompt: 'other session topic', sessionId: 'P2' })
+  ].join('\n') + '\n')
+  assert.equal(primeTopics(f), 3)
+  assert.equal(topicOf('P1'), 'the current topic', 'latest wins')
+  assert.equal(topicOf('P2'), 'other session topic')
+})
+
+test('primeTopics survives a malformed or partial trailing line', t => {
+  const d = mkdtempSync(join(tmpdir(), 'orcht-'))
+  t.after(() => rmSync(d, { recursive: true, force: true }))
+  const f = join(d, 's.jsonl')
+  writeFileSync(f, JSON.stringify({ type: 'last-prompt', lastPrompt: 'good', sessionId: 'P3' }) + '\n{"type":"last-pro')
+  assert.doesNotThrow(() => primeTopics(f))
+  assert.equal(topicOf('P3'), 'good')
+})
+
+test('primeTopics on a missing file returns 0 rather than throwing', () => {
+  assert.equal(primeTopics('/nope/nope.jsonl'), 0)
 })
 
 // --- attribution ---------------------------------------------------------

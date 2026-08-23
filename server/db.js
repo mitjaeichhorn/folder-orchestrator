@@ -11,7 +11,14 @@ export function open (path) {
   const db = new DatabaseSync(path)
   db.exec('PRAGMA journal_mode = WAL')
   db.exec(SCHEMA)
+  migrate(db)
   return db
+}
+
+// sqlite has no ADD COLUMN IF NOT EXISTS — check the table first.
+function migrate (db) {
+  const cols = db.prepare('PRAGMA table_info(events)').all().map(c => c.name)
+  if (!cols.includes('topic')) db.exec('ALTER TABLE events ADD COLUMN topic TEXT')
 }
 
 const rowToFolder = r => r && ({
@@ -21,7 +28,8 @@ const rowToFolder = r => r && ({
 
 const rowToEvent = r => ({
   id: r.id, folderId: r.folder_id, ts: r.ts, kind: r.kind, path: r.path,
-  actor: r.actor, sessionId: r.session_id, tool: r.tool, detail: JSON.parse(r.detail)
+  actor: r.actor, sessionId: r.session_id, tool: r.tool, topic: r.topic,
+  detail: JSON.parse(r.detail)
 })
 
 export function listFolders (db) {
@@ -66,9 +74,9 @@ export function removeFolder (db, id, purge) {
 
 export function insertEvent (db, e) {
   const r = db.prepare(
-    'INSERT INTO events (folder_id,ts,kind,path,actor,session_id,tool,detail) VALUES (?,?,?,?,?,?,?,?)'
+    'INSERT INTO events (folder_id,ts,kind,path,actor,session_id,tool,topic,detail) VALUES (?,?,?,?,?,?,?,?,?)'
   ).run(e.folderId, e.ts, e.kind, e.path ?? null, e.actor ?? 'unknown',
-        e.sessionId ?? null, e.tool ?? null, JSON.stringify(e.detail ?? {}))
+        e.sessionId ?? null, e.tool ?? null, e.topic ?? null, JSON.stringify(e.detail ?? {}))
   return Number(r.lastInsertRowid)
 }
 
@@ -84,8 +92,9 @@ export function listEvents (db, { folderId, limit = 200, before, kinds, sessionI
   ).all(...args).map(rowToEvent)
 }
 
-export function relabelEvent (db, id, { actor, sessionId }) {
-  db.prepare('UPDATE events SET actor=?, session_id=? WHERE id=?').run(actor, sessionId ?? null, id)
+export function relabelEvent (db, id, { actor, sessionId, topic }) {
+  db.prepare('UPDATE events SET actor=?, session_id=?, topic=COALESCE(?, topic) WHERE id=?')
+    .run(actor, sessionId ?? null, topic ?? null, id)
 }
 
 export function sessions (db, folderId, limit = 20) {

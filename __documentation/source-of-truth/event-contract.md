@@ -18,6 +18,7 @@ pipeline. `kind` discriminates.
   actor:      'claude' | 'external' | 'unknown',
   sessionId:  String | null,   // Claude session uuid when known
   tool:       String | null,   // 'Edit' | 'Bash' | ... for kind === 'tool'
+  topic:      String | null,   // the operator's prompt, verbatim — see below
   detail:     Object           // free-form, see below. Stored as JSON text.
 }
 ```
@@ -86,6 +87,23 @@ SSE is the **only** push channel. Named event types on the stream:
 
 Consumers must ignore unknown frame types rather than erroring.
 
+## `topic` — the grouping dimension above `path`
+
+Claude Code writes a `last-prompt` record into the transcript carrying the operator's prompt
+verbatim. That string **is** the topic: the tool tracks the current one per session and stamps
+it onto every action that follows, plus onto any filesystem event the attribution join relabels.
+
+Rules:
+- **Transcription, never summarisation.** The topic is the exact prompt text, first line only,
+  capped at 160 chars. Nothing in this system may shorten it by meaning.
+- A session with no `last-prompt` seen yet has `topic: null`. Never borrow another session's.
+- `topic` is a column, not a `detail` field, because it is a first-class grouping key.
+
+The display hierarchy is therefore **topic → file → actions**. Note that only ~11% of Claude
+tool calls declare a `file_path` (`Edit`/`Write`/`Read`/`NotebookEdit`); `Bash` and MCP tools
+declare none. Those group under the topic directly, in an explicit no-file bucket — they are
+never assigned to whichever file happened to change nearby.
+
 ## Invariants
 
 1. **Read-only.** No route and no module writes inside a watched folder. Ever.
@@ -97,3 +115,5 @@ Consumers must ignore unknown frame types rather than erroring.
 4. **Unknown transcript record types are skipped silently.** The JSONL format changes without
    notice; an unrecognised `type` must never throw.
 5. **No LLM.** No module in this repo calls an inference API.
+6. **An action belongs to a file only if it names that file.** A filesystem event's own path, or
+   a tool call whose input declared `file_path`. Timing proximity is never a parent.

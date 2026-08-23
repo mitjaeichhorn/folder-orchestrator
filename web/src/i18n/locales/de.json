@@ -44,5 +44,13 @@
   "session.running": "läuft",
   "session.ended": "beendet",
   "rules.heading": "Warnen wenn…",
-  "rules.add": "Regel hinzufügen"
+  "rules.add": "Regel hinzufügen",
+  "view.timeline": "Zeitverlauf",
+  "view.byTopic": "Nach Thema",
+  "tree.noTopic": "Kein Thema erfasst",
+  "tree.noFile": "Keine Datei (Bash, MCP, andere Werkzeuge)",
+  "detail.preview": "Vorschau",
+  "heat.title": "Projekt-Heatmap",
+  "heat.loading": "Baum wird gelesen…",
+  "heat.toggle": "Heatmap"
 }

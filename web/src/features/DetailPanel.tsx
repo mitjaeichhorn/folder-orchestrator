@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type OrchEvent, type Folder } from '@/lib/api'
+import { isImagePath } from '@shared/glob.js'
+import { Thumb } from './Thumb'
 import { t, fmtDateTime } from '@/i18n'
 
 function Diff ({ oldS, newS }: { oldS?: { text?: string; truncated?: boolean }; newS?: { text?: string; truncated?: boolean } }) {
@@ -57,6 +59,16 @@ export function DetailPanel ({ event, folder, onMute }: {
         </div>
 
         <Separator />
+
+        {event.path && isImagePath(event.path) && event.kind !== 'deleted' && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs uppercase">{t('detail.preview')}</p>
+            <div className="bg-muted/40 flex justify-center rounded-md border p-2">
+              <Thumb folderId={folder.id} path={event.path} size={0}
+                className="h-auto max-h-72 w-auto max-w-full object-contain" />
+            </div>
+          </div>
+        )}
 
         {isEdit && (
           <div className="space-y-2">

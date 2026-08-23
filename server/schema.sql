@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS events (
   actor      TEXT NOT NULL DEFAULT 'unknown',
   session_id TEXT,
   tool       TEXT,
+  topic      TEXT,
   detail     TEXT NOT NULL DEFAULT '{}'
 );
 

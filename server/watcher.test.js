@@ -31,6 +31,8 @@ test('atomic-save temp files are ignored', () => {
   const c = compile({ path: '/x', ignore: [] })
   assert.equal(shouldIgnore('README.md.tmp.77', c), true, 'editor atomic-write temp')
   assert.equal(shouldIgnore('a.crswap', c), true)
+  assert.equal(shouldIgnore('web/tests/.!2248!timeline.test.ts', c), true, 'editor atomic-write artifact')
+  assert.equal(shouldIgnore('web/tests/timeline.test.ts', c), false, 'the real file still passes')
   assert.equal(shouldIgnore('README.md', c), false)
 })
 

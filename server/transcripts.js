@@ -27,11 +27,25 @@ export function init (database) { db = database }
 const clip = s => (typeof s === 'string' && s.length > MAX_STR
   ? { text: s.slice(0, MAX_STR), truncated: true } : { text: s })
 
+// The topic is whatever the operator last typed. Claude Code writes it verbatim
+// as a `last-prompt` record; we carry it forward onto every action that follows.
+// This is transcription, not inference — no summarisation anywhere.
+const topics = new Map() // sessionId -> current topic string
+export const topicOf = sessionId => topics.get(sessionId) ?? null
+export const _setTopic = (sessionId, topic) => topics.set(sessionId, topic)
+const TOPIC_MAX = 160
+
 export function parseLine (line, folderId) {
   let o
   try { o = JSON.parse(line) } catch { return { skip: 'bad_json' } }
   const ts = o.timestamp ? Date.parse(o.timestamp) : Date.now()
   const sessionId = o.sessionId || null
+
+  if (o.type === 'last-prompt' && o.lastPrompt) {
+    const topic = String(o.lastPrompt).trim().split('\n')[0].slice(0, TOPIC_MAX)
+    if (sessionId) topics.set(sessionId, topic)
+    return { skip: 'topic_recorded', topic }
+  }
 
   if (o.type === 'assistant') {
     const blocks = Array.isArray(o.message?.content) ? o.message.content : []
@@ -53,14 +67,19 @@ export function parseLine (line, folderId) {
       } else if (path) {
         detail.input.file_path = path
       }
-      out.push({ folderId, ts, kind: 'tool', path, actor: 'claude', sessionId, tool: b.name, detail })
+      out.push({
+        folderId, ts, kind: 'tool', path, actor: 'claude', sessionId,
+        tool: b.name, topic: topicOf(sessionId), detail
+      })
     }
     return { events: out }
   }
 
   if (o.type === 'user' && typeof o.message?.content === 'string') {
+    const text = o.message.content
+    if (sessionId) topics.set(sessionId, text.trim().split('\n')[0].slice(0, TOPIC_MAX))
     return { events: [{ folderId, ts, kind: 'prompt', path: null, actor: 'claude', sessionId,
-                        tool: null, detail: { text: o.message.content.slice(0, 200) } }] }
+                        tool: null, topic: topicOf(sessionId), detail: { text: text.slice(0, 200) } }] }
   }
 
   return { skip: 'unhandled_type' } // contract invariant 4: silent
@@ -126,7 +145,7 @@ function drain (folderId, t, initial = false) {
       try { size = statSync(file).size } catch {}
       // start at EOF: never replay history
       t.files.set(name, { ino: null, offset: initial ? size : 0, buf: '' })
-      if (initial) continue
+      if (initial) { primeTopics(file); continue }
     }
     const state = t.files.get(name)
     for (const line of readFrom(file, state)) {
@@ -135,8 +154,9 @@ function drain (folderId, t, initial = false) {
       for (const ev of events) {
         const hit = attribute(ev)
         if (hit && db) {
-          relabelEvent(db, hit.id, { actor: 'claude', sessionId: ev.sessionId })
-          bus.patch(folderId, hit.id, { actor: 'claude', sessionId: ev.sessionId })
+          const patch = { actor: 'claude', sessionId: ev.sessionId, topic: ev.topic }
+          relabelEvent(db, hit.id, patch)
+          bus.patch(folderId, hit.id, patch)
         }
         // store tool events with the folder-relative path for the UI
         if (ev.path?.startsWith(t.rootPath)) ev.path = ev.path.slice(t.rootPath.length + 1)
@@ -144,6 +164,37 @@ function drain (folderId, t, initial = false) {
       }
     }
   }
+}
+
+// Tailing starts at EOF, so the `last-prompt` for the turn already in progress
+// is behind us. Without this, the topic stays null until the operator's NEXT
+// prompt — and every restart loses it. Read back over the file's tail to
+// recover the most recent topic per session.
+const PRIME_BYTES = 512 * 1024
+
+export function primeTopics (file) {
+  let st
+  try { st = statSync(file) } catch { return 0 }
+  const start = Math.max(0, st.size - PRIME_BYTES)
+  const len = st.size - start
+  if (len <= 0) return 0
+  const buf = Buffer.alloc(len)
+  const fd = openSync(file, 'r')
+  try { readSync(fd, buf, 0, len, start) } finally { closeSync(fd) }
+  const lines = buf.toString('utf8').split('\n')
+  if (start > 0) lines.shift() // first line is probably partial
+  let found = 0
+  for (const line of lines) {
+    if (!line.includes('last-prompt')) continue
+    try {
+      const o = JSON.parse(line)
+      if (o.type === 'last-prompt' && o.lastPrompt && o.sessionId) {
+        topics.set(o.sessionId, String(o.lastPrompt).trim().split('\n')[0].slice(0, TOPIC_MAX))
+        found++
+      }
+    } catch { /* partial or malformed line — skip, same as the tailer */ }
+  }
+  return found
 }
 
 export function startTail (folder) {
@@ -157,7 +208,9 @@ export function startTail (folder) {
   } catch (err) {
     log('ERROR', 'tail_watch', { dir, message: err.message })
   }
-  log('INFO', 'tail_started', { folder_id: folder.id, dir, files: t.files.size })
+  log('INFO', 'tail_started', {
+    folder_id: folder.id, dir, files: t.files.size, topics_primed: topics.size
+  })
   return t
 }
 

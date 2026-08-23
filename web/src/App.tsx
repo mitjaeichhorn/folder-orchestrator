@@ -12,6 +12,7 @@ import { Feed } from '@/features/Feed'
 import { DetailPanel } from '@/features/DetailPanel'
 import { Sessions } from '@/features/Sessions'
 import { Rules } from '@/features/Rules'
+import { HeatTree } from '@/features/HeatTree'
 import { api, type Folder, type OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils'
 function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange: () => void }) {
   const { events, status, conn, attempt, evicted, alerts, clearAlerts } = useStream()
   const [selected, setSelected] = useState<OrchEvent | null>(null)
+  const [heatOpen, setHeatOpen] = useState(true)
 
   useEffect(() => {
     if (alerts.length === 0) return
@@ -52,6 +54,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
               · {t('folder.files', { n: fmtNum(status.fileCount) })} · {t('sidebar.eventsPerMin', { n: status.eventsPerMin })}
             </span>
           )}
+          <Button size="sm" variant={heatOpen ? 'secondary' : 'ghost'}
+            onClick={() => setHeatOpen(v => !v)}>{t('heat.toggle')}</Button>
           <Button size="sm" variant="outline" onClick={async () => {
             await api.patchFolder(folder.id, { enabled: !folder.enabled }); onFolderChange()
           }}>
@@ -60,7 +64,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         </div>
       </header>
 
-      <Tabs defaultValue="activity" className="flex min-h-0 flex-1 flex-col gap-0">
+      <div className="flex min-h-0 flex-1">
+      <Tabs defaultValue="activity" className="flex min-h-0 min-w-0 flex-1 flex-col gap-0">
         <TabsList className="mx-4 my-2 w-fit">
           <TabsTrigger value="activity">{t('tab.activity')}</TabsTrigger>
           <TabsTrigger value="session">{t('tab.session')}</TabsTrigger>
@@ -70,7 +75,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         <TabsContent value="activity" className="min-h-0 flex-1">
           <ResizablePanelGroup orientation="horizontal" className="h-full">
             <ResizablePanel defaultSize="62" minSize="30">
-              <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected} />
+              <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected} folderId={folder.id} />
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="38" minSize="20">
@@ -87,6 +92,12 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           <Rules />
         </TabsContent>
       </Tabs>
+      {heatOpen && (
+        <div className="w-64 shrink-0">
+          <HeatTree folderId={folder.id} events={events} />
+        </div>
+      )}
+      </div>
     </div>
   )
 }

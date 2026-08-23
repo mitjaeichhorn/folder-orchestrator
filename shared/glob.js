@@ -39,3 +39,13 @@ export function matchEvent (e, f = {}) {
   }
   return true
 }
+
+// Image extensions the server will serve. Shared so the client never renders a
+// thumbnail for something the server would refuse.
+export const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.svg', '.ico', '.bmp']
+
+export function isImagePath (p) {
+  if (typeof p !== 'string') return false
+  const i = p.lastIndexOf('.')
+  return i !== -1 && IMAGE_EXTS.includes(p.slice(i).toLowerCase())
+}

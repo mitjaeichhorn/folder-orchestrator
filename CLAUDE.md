@@ -9,6 +9,11 @@ tool activity, to a local dashboard. macOS, localhost, single user.
 
 - **No LLM.** Nothing in this codebase calls a model or an inference API. All labelling, diffing
   and alerting is deterministic. A feature that needs a model is out of scope, not a TODO.
+  **Enforced**, not intended: `server/no-llm.test.js` scans every source file for inference
+  endpoints and SDK names and asserts the server has zero runtime dependencies. Note the
+  distinction it protects: some *displayed* strings were authored by an LLM upstream (Claude
+  Code's own Bash `description`, sitting in the transcript before this app read it). Reading a
+  stored field is not running a model. Generating one would be.
 - **No npm dependencies in the server.** Node stdlib only (`node:fs`, `node:http`, `node:sqlite`,
   `node:path`). Frontend deps are fine. Adding a server dep needs an explicit reason in the PR.
 - **Read-only against watched folders.** Never write, move, or delete inside a watched tree.
@@ -54,6 +59,21 @@ Keep it at this file count. New concerns go into an existing file until it genui
   window. When there's no match, say `external` — never guess.
 - **Diffs are free, so don't compute them.** `Edit` tool calls in the transcript carry
   `old_string` / `new_string`. Use those. No git, no snapshotting, no model.
+- **Only ~11% of Claude tool calls name a file.** `Edit`/`Write`/`Read`/`NotebookEdit` carry
+  `file_path`; `Bash` and MCP tools carry none, and `Bash` is by far the most common. Measured,
+  not guessed. Any file-centric view must therefore have an explicit home for pathless actions —
+  never assign one to whichever file happened to change nearby.
+- **The topic is the operator's prompt, verbatim.** Claude Code writes a `last-prompt` record;
+  we slice it by character count and never by meaning. Tailing starts at EOF, so `primeTopics`
+  reads back over the file to recover the current topic — without it, the topic is null until
+  the next prompt and every restart loses it.
+- **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
+  branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
+  rather than "how long ago was this".
+- **`/api/file` is an allow-list.** Only image extensions, only inside the folder, and the
+  symlink check realpaths *both* sides — on macOS the folder itself often sits under a symlink
+  (`/var` → `/private/var`), and comparing a resolved file to an unresolved root rejects
+  everything legitimate.
 
 ### Transcript format
 

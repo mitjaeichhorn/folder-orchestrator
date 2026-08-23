@@ -4,18 +4,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { matchEvent, ALL_KINDS } from '@shared/glob.js'
+import { matchEvent, ALL_KINDS, isImagePath } from '@shared/glob.js'
+import { GLYPH, TONE, rowText } from './event-view'
+import { gaps, gapPx, fmtGap, isCapped } from './timeline'
+import { FilePath } from './FilePath'
+import { Thumb } from './Thumb'
+import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-const GLYPH: Record<string, string> = {
-  created: '✚', modified: '✎', deleted: '✖', renamed: '↻', tool: '⌘', prompt: '▸', alert: '⚠'
-}
-const TONE: Record<string, string> = {
-  created: 'text-emerald-400', modified: 'text-sky-400', deleted: 'text-rose-400',
-  renamed: 'text-amber-400', tool: 'text-violet-400', prompt: 'text-muted-foreground', alert: 'text-orange-400'
-}
 const WINDOWS = [
   { key: 'window.15m', ms: 15 * 60_000 },
   { key: 'window.1h', ms: 60 * 60_000 },
@@ -23,36 +21,18 @@ const WINDOWS = [
   { key: 'window.all', ms: 0 }
 ]
 
-/** One line, always. A row the operator has to unwrap is a row they skip. */
-function rowText (e: OrchEvent): string {
-  if (e.detail?.collapsed) return t('feed.collapsed', { n: e.detail.collapsed })
-  if (e.kind === 'alert') return t(e.detail?.label ?? 'kind.alert')
-  if (e.kind === 'prompt') return oneLine(e.detail?.text ?? '')
-  if (e.kind === 'tool') {
-    if (e.path) return e.path
-    const d = e.detail?.input
-    // Claude Code's Bash tool carries its own description — a written summary,
-    // no inference needed. Fall back to the command's first line.
-    return oneLine(d?.description || d?.command || '')
-  }
-  if (e.kind === 'renamed' && e.detail?.oldPath) return `${e.path}  ←  ${e.detail.oldPath}`
-  return e.path ?? ''
-}
 
-const oneLine = (s: string) => {
-  const first = String(s).split('\n').find(l => l.trim()) ?? ''
-  return first.length > 140 ? first.slice(0, 140) + '…' : first
-}
-
-export function Feed ({ events, evicted, selected, onSelect }: {
+export function Feed ({ events, evicted, selected, onSelect, folderId }: {
   events: OrchEvent[]
   evicted: number
   selected: OrchEvent | null
   onSelect: (e: OrchEvent) => void
+  folderId: string
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
   const [windowMs, setWindowMs] = useState(0)
+  const [view, setView] = useState<'timeline' | 'tree'>('timeline')
   const [pinned, setPinned] = useState(true)
   const [unseen, setUnseen] = useState(0)
   const viewport = useRef<HTMLDivElement>(null)
@@ -68,6 +48,8 @@ export function Feed ({ events, evicted, selected, onSelect }: {
     () => events.filter(e => matchEvent(e, filter)).slice().reverse(),
     [events, filter]
   )
+
+  const rowGaps = useMemo(() => gaps(rows.map(e => e.ts)), [rows])
 
   const lastCount = useRef(rows.length)
   useEffect(() => {
@@ -111,33 +93,63 @@ export function Feed ({ events, evicted, selected, onSelect }: {
             {WINDOWS.map(w => <SelectItem key={w.key} value={String(w.ms)}>{t(w.key)}</SelectItem>)}
           </SelectContent>
         </Select>
+        <div className="ml-auto flex gap-1">
+          <Button size="sm" variant={view === 'timeline' ? 'secondary' : 'ghost'}
+            onClick={() => setView('timeline')}>{t('view.timeline')}</Button>
+          <Button size="sm" variant={view === 'tree' ? 'secondary' : 'ghost'}
+            onClick={() => setView('tree')}>{t('view.byTopic')}</Button>
+        </div>
         {!pinned && unseen > 0 && (
           <Button size="sm" variant="secondary" onClick={jumpToLatest}>{t('feed.newEvents', { n: unseen })}</Button>
         )}
       </div>
 
       <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
-        {rows.length === 0
-          ? <p className="text-muted-foreground p-8 text-center text-sm">
-              {events.length === 0 ? t('feed.empty') : t('feed.emptyFiltered')}
-            </p>
-          : (
+        {view === 'tree'
+          ? <Tree events={rows} selected={selected} onSelect={onSelect} folderId={folderId} />
+          : rows.length === 0
+            ? <p className="text-muted-foreground p-8 text-center text-sm">
+                {events.length === 0 ? t('feed.empty') : t('feed.emptyFiltered')}
+              </p>
+            : (
             <table className="w-full table-fixed text-sm">
               <tbody>
-                {rows.map(e => (
+                {rows.map((e, i) => (
                   <tr key={e.id ?? `${e.ts}-${e.path}`}
                     onClick={() => onSelect(e)}
-                    className={cn('hover:bg-muted/50 cursor-pointer border-b',
+                    className={cn('hover:bg-muted/50 cursor-pointer',
                       selected?.id === e.id && 'bg-muted')}>
-                    <td className="text-muted-foreground w-20 px-3 py-1 align-top font-mono text-xs tabular-nums">
-                      {fmtTime(e.ts)}
+                    <td className="w-24 px-3 py-1 align-top">
+                      <div className="text-muted-foreground font-mono text-xs tabular-nums">{fmtTime(e.ts)}</div>
+                      {/* elapsed time made visible: the dash spans the gap to the
+                          older event below, so a burst reads dense and a pause reads long */}
+                      {rowGaps[i] > 0 && (
+                        <div className="relative ml-1 flex" style={{ height: gapPx(rowGaps[i]) }}>
+                          <div className="border-muted-foreground/25 h-full border-l border-dashed" />
+                          {(gapPx(rowGaps[i]) >= 22 || isCapped(rowGaps[i])) && (
+                            <span className={cn('text-muted-foreground/50 self-center pl-1.5 text-[10px] tabular-nums',
+                              isCapped(rowGaps[i]) && 'text-amber-500/60')}>
+                              {isCapped(rowGaps[i]) ? `↕ ${fmtGap(rowGaps[i])}` : fmtGap(rowGaps[i])}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className={cn('w-6 py-1 align-top', TONE[e.kind])}>{GLYPH[e.kind]}</td>
                     <td className="w-20 py-1 align-top">
                       {e.tool && <span className="text-violet-400 font-mono text-xs">{e.tool}</span>}
                     </td>
                     <td className="max-w-0 py-1 pr-2 align-top">
-                      <div className="truncate font-mono text-xs" title={rowText(e)}>{rowText(e)}</div>
+                      <div className="flex min-w-0 items-center gap-2" title={rowText(e)}>
+                        {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
+                          <Thumb folderId={folderId} path={e.path} />
+                        )}
+                        <span className="truncate font-mono text-xs">
+                          {e.path && e.kind !== 'tool'
+                            ? <FilePath path={rowText(e)} />
+                            : rowText(e)}
+                        </span>
+                      </div>
                     </td>
                     <td className="w-16 py-1 pr-2 text-right align-top">
                       {e.actor === 'claude' && (
