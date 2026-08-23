@@ -1,0 +1,173 @@
+import { readdirSync, statSync, existsSync, openSync, readSync, closeSync, watch } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
+import * as bus from './bus.js'
+import { relabelEvent } from './db.js'
+import { log } from './log.js'
+
+const ROOT = process.env.ORCH_CLAUDE_DIR || join(homedir(), '.claude', 'projects')
+const MATCH_WINDOW = 5000
+const RECENT_TTL = 30000
+const MAX_STR = 4096
+
+// Verified against the 50 real directories on this machine.
+export const slugify = p => p.replace(/[^a-zA-Z0-9]/g, '-')
+
+// Tool -> path extractor. A table, not a heuristic: an unknown tool yields no path.
+const PATH_OF = {
+  Edit: i => i?.file_path, Write: i => i?.file_path, Read: i => i?.file_path,
+  NotebookEdit: i => i?.notebook_path ?? i?.file_path, MultiEdit: i => i?.file_path
+}
+
+const tailers = new Map() // folderId -> {dir, files: Map<name,{ino,offset,buf}>, handle}
+const recent = new Map()  // folderId -> [{id, absPath, ts}]
+let db = null
+export function init (database) { db = database }
+
+const clip = s => (typeof s === 'string' && s.length > MAX_STR
+  ? { text: s.slice(0, MAX_STR), truncated: true } : { text: s })
+
+export function parseLine (line, folderId) {
+  let o
+  try { o = JSON.parse(line) } catch { return { skip: 'bad_json' } }
+  const ts = o.timestamp ? Date.parse(o.timestamp) : Date.now()
+  const sessionId = o.sessionId || null
+
+  if (o.type === 'assistant') {
+    const blocks = Array.isArray(o.message?.content) ? o.message.content : []
+    const out = []
+    for (const b of blocks) {
+      if (b?.type !== 'tool_use') continue
+      const path = PATH_OF[b.name]?.(b.input) ?? null
+      const detail = { input: {} }
+      if (b.name === 'Edit' || b.name === 'MultiEdit') {
+        const oldS = b.input?.old_string ?? ''
+        const newS = b.input?.new_string ?? ''
+        detail.input.old_string = clip(oldS)
+        detail.input.new_string = clip(newS)
+        detail.linesRemoved = oldS ? oldS.split('\n').length : 0
+        detail.linesAdded = newS ? newS.split('\n').length : 0
+      } else if (b.name === 'Bash') {
+        detail.input.command = clip(b.input?.command ?? '').text
+        detail.input.description = b.input?.description ?? null
+      } else if (path) {
+        detail.input.file_path = path
+      }
+      out.push({ folderId, ts, kind: 'tool', path, actor: 'claude', sessionId, tool: b.name, detail })
+    }
+    return { events: out }
+  }
+
+  if (o.type === 'user' && typeof o.message?.content === 'string') {
+    return { events: [{ folderId, ts, kind: 'prompt', path: null, actor: 'claude', sessionId,
+                        tool: null, detail: { text: o.message.content.slice(0, 200) } }] }
+  }
+
+  return { skip: 'unhandled_type' } // contract invariant 4: silent
+}
+
+// --- attribution ---------------------------------------------------------
+export function noteFsEvent (folderId, id, absPath, ts) {
+  if (!recent.has(folderId)) recent.set(folderId, [])
+  const list = recent.get(folderId)
+  list.push({ id, absPath, ts })
+  const cut = ts - RECENT_TTL
+  while (list.length && list[0].ts < cut) list.shift()
+}
+
+export function attribute (ev) {
+  if (!ev.path || !ev.sessionId) return null
+  const list = recent.get(ev.folderId) || []
+  const hits = list.filter(r => r.absPath === ev.path && Math.abs(r.ts - ev.ts) <= MATCH_WINDOW)
+  if (hits.length === 0) {
+    log('INFO', 'attribution', { path: ev.path, outcome: 'no_match' })
+    return null
+  }
+  if (hits.length > 1) {
+    log('WARN', 'attribution_ambiguous', { path: ev.path, candidates: hits.length })
+    return null // fail toward 'external' — a wrong claude label is worse than none
+  }
+  const hit = hits[0]
+  log('INFO', 'attribution', {
+    path: ev.path, tool_event_ts: ev.ts, matched_fs_event_id: hit.id,
+    delta_ms: ev.ts - hit.ts, outcome: 'relabelled'
+  })
+  return hit
+}
+
+// --- tailing -------------------------------------------------------------
+function readFrom (file, state) {
+  let st
+  try { st = statSync(file) } catch { return [] }
+  if (state.ino && (st.ino !== state.ino || st.size < state.offset)) {
+    log('INFO', 'transcript_reset', { file, old_ino: state.ino, new_ino: st.ino, old_offset: state.offset })
+    state.offset = 0; state.buf = ''
+  }
+  state.ino = st.ino
+  if (st.size <= state.offset) return []
+  const len = st.size - state.offset
+  const buf = Buffer.alloc(len)
+  const fd = openSync(file, 'r')
+  try { readSync(fd, buf, 0, len, state.offset) } finally { closeSync(fd) }
+  state.offset = st.size
+  const text = state.buf + buf.toString('utf8')
+  const parts = text.split('\n')
+  state.buf = parts.pop() // partial line held back
+  return parts.filter(Boolean)
+}
+
+function drain (folderId, t, initial = false) {
+  let files
+  try { files = readdirSync(t.dir).filter(f => f.endsWith('.jsonl')) } catch { return }
+  for (const name of files) {
+    const file = join(t.dir, name)
+    if (!t.files.has(name)) {
+      let size = 0
+      try { size = statSync(file).size } catch {}
+      // start at EOF: never replay history
+      t.files.set(name, { ino: null, offset: initial ? size : 0, buf: '' })
+      if (initial) continue
+    }
+    const state = t.files.get(name)
+    for (const line of readFrom(file, state)) {
+      const { events, skip } = parseLine(line, folderId)
+      if (skip) { if (skip === 'bad_json') log('WARN', 'bad_line', { file, first: line.slice(0, 80) }); continue }
+      for (const ev of events) {
+        const hit = attribute(ev)
+        if (hit && db) {
+          relabelEvent(db, hit.id, { actor: 'claude', sessionId: ev.sessionId })
+          bus.patch(folderId, hit.id, { actor: 'claude', sessionId: ev.sessionId })
+        }
+        // store tool events with the folder-relative path for the UI
+        if (ev.path?.startsWith(t.rootPath)) ev.path = ev.path.slice(t.rootPath.length + 1)
+        bus.emit(ev)
+      }
+    }
+  }
+}
+
+export function startTail (folder) {
+  const dir = join(ROOT, slugify(folder.path))
+  if (!existsSync(dir)) { log('INFO', 'no_transcripts', { folder_id: folder.id, dir }); return null }
+  const t = { dir, rootPath: folder.path, files: new Map(), handle: null }
+  tailers.set(folder.id, t)
+  drain(folder.id, t, true) // prime offsets at EOF
+  try {
+    t.handle = watch(dir, () => drain(folder.id, t))
+  } catch (err) {
+    log('ERROR', 'tail_watch', { dir, message: err.message })
+  }
+  log('INFO', 'tail_started', { folder_id: folder.id, dir, files: t.files.size })
+  return t
+}
+
+export function stopTail (folderId) {
+  const t = tailers.get(folderId)
+  if (!t) return false
+  try { t.handle?.close() } catch {}
+  tailers.delete(folderId)
+  recent.delete(folderId)
+  return true
+}
+
+export function _recent (folderId) { return recent.get(folderId) || [] }

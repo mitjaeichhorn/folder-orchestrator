@@ -1,0 +1,14 @@
+{
+  "name": "folder-orchestrator",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=25"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test server/*.test.js && npm --prefix web test",
+    "build": "npm --prefix web run build",
+    "dev": "npm --prefix web run dev"
+  }
+}
