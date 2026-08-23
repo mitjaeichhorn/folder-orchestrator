@@ -132,6 +132,23 @@ export function DetailPanel ({ event, folder, onMute }: {
 
         <Separator />
 
+        {abs && (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => { window.location.href = `vscode://file/${abs}` }}>
+              {t('detail.openEditor')}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => api.reveal(abs)}>{t('detail.reveal')}</Button>
+            <Button size="sm" variant="outline" onClick={() => copy(abs, 'detail.copiedFile')}>
+              <Copy className="size-3" />{t('detail.copyFile')}
+            </Button>
+            <Button size="sm" variant="outline"
+              onClick={() => copy(abs.slice(0, abs.lastIndexOf('/')) || folder.path, 'detail.copiedFolder')}>
+              <Copy className="size-3" />{t('detail.copyFolder')}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onMute(event.path!)}>{t('detail.mute')}</Button>
+          </div>
+        )}
+
         {burst && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs uppercase">
@@ -190,22 +207,6 @@ export function DetailPanel ({ event, folder, onMute }: {
           </div>
         )}
 
-        {abs && (
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => { window.location.href = `vscode://file/${abs}` }}>
-              {t('detail.openEditor')}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => api.reveal(abs)}>{t('detail.reveal')}</Button>
-            <Button size="sm" variant="outline" onClick={() => copy(abs, 'detail.copiedFile')}>
-              <Copy className="size-3" />{t('detail.copyFile')}
-            </Button>
-            <Button size="sm" variant="outline"
-              onClick={() => copy(abs.slice(0, abs.lastIndexOf('/')) || folder.path, 'detail.copiedFolder')}>
-              <Copy className="size-3" />{t('detail.copyFolder')}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => onMute(event.path!)}>{t('detail.mute')}</Button>
-          </div>
-        )}
       </div>
       <Lightbox folderId={folder.id} path={zoom} onClose={() => setZoom(null)} />
     </ScrollArea>
