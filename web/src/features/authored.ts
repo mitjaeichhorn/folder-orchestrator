@@ -9,6 +9,13 @@ import type { OrchEvent } from '@/lib/api'
  */
 export const AUTHORED_TONE = 'text-lime-300'
 
+/**
+ * A tool's own description of what it is doing. Authored text, but it is the
+ * bulk of the feed, so it reads as light grey body copy rather than competing
+ * with the prompts. Lighter than the tool name beside it (zinc-400).
+ */
+export const TOOL_DESC_TONE = 'text-zinc-300'
+
 /** Is this row's label authored text rather than a path or a machine value? */
 export function isAuthored (e: OrchEvent): boolean {
   if (e.kind === 'prompt') return true

@@ -90,16 +90,35 @@ test('backfill order matters: the last event in the list is the brightest', () =
 })
 
 // --- flash ---------------------------------------------------------------
-test('only the paths touched by the newest event count as just-changed', () => {
+test('only the exact changed path flashes, never its ancestors', () => {
   let s = touch(emptyHeat(), 'src/lib/a.ts')
   assert.equal(justChanged(s, 'src/lib/a.ts'), true)
-  assert.equal(justChanged(s, 'src/lib'), true, 'ancestors flash too')
-  assert.equal(justChanged(s, 'src'), true)
+  assert.equal(justChanged(s, 'src/lib'), false, 'a parent did not change, its child did')
+  assert.equal(justChanged(s, 'src'), false)
   assert.equal(justChanged(s, 'other.ts'), false)
 
   s = touch(s, 'other.ts')
   assert.equal(justChanged(s, 'src/lib/a.ts'), false, 'the previous flash is over')
   assert.equal(justChanged(s, 'other.ts'), true)
+})
+
+test('a changed FOLDER flashes itself — it is the thing that changed', () => {
+  const s = touch(emptyHeat(), 'src/newdir')
+  assert.equal(justChanged(s, 'src/newdir'), true)
+  assert.equal(justChanged(s, 'src'), false)
+})
+
+test('ancestors still brighten even though they do not flash', () => {
+  const s = touch(emptyHeat(), 'src/lib/a.ts')
+  assert.equal(heatOf(s, 'src/lib'), 1, 'a closed folder must still light up')
+  assert.equal(justChanged(s, 'src/lib'), false, 'but it must not flash')
+})
+
+test('prune keeps the flash target', () => {
+  let s = emptyHeat()
+  for (let i = 0; i < 50; i++) s = touch(s, `f${i}.ts`)
+  const p = prune(s, 5)
+  assert.equal(justChanged(p, 'f49.ts'), true)
 })
 
 test('nothing is just-changed before any event', () => {

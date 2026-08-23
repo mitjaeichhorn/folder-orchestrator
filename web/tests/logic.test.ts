@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { matchEvent, globToRe, ALL_KINDS } from '../../shared/glob.js'
 import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED } from '../src/features/session-logic.ts'
-import { isAuthored, AUTHORED_TONE } from '../src/features/authored.ts'
+import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from '../src/features/authored.ts'
 import { parseTool } from '../src/features/tool-name.ts'
 import { fmtTokens } from '../src/features/usage-format.ts'
 import { collapseRepeats, collapseBursts } from '../src/features/collapse.ts'
@@ -309,4 +309,12 @@ test('no event disappears through both collapse passes', () => {
   const out = collapseBursts(collapseRepeats(input))
   const total = out.reduce((n, r) => n + (r.burst?.count ?? r.repeat ?? 1), 0)
   assert.equal(total, 30)
+})
+
+test('a tool description and a prompt use different tones', () => {
+  // the description is the bulk of the feed and reads as body copy; a prompt is
+  // the operator's own words and keeps the authored colour
+  assert.notEqual(TOOL_DESC_TONE, AUTHORED_TONE)
+  assert.match(TOOL_DESC_TONE, /zinc/, 'light grey')
+  assert.match(AUTHORED_TONE, /lime/, 'neon green')
 })

@@ -6,7 +6,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { matchEvent, ALL_KINDS, isImagePath } from '@shared/glob.js'
 import { rowText } from './event-view'
-import { isAuthored, AUTHORED_TONE } from './authored'
+import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { gaps, gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
@@ -204,7 +204,9 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                           </span>
                         )}
                         <span className={cn('truncate text-xs',
-                          isAuthored(e) ? AUTHORED_TONE : 'font-mono',
+                          isAuthored(e)
+                            ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
+                            : 'font-mono',
                           e.path && running?.has(e.path) && 'orch-pulse-soft')}>
                           {e.burst
                             ? <span className="text-muted-foreground/60">

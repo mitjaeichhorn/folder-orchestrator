@@ -17,9 +17,11 @@ export const MIN_HEAT = 0.06  // never fully invisible — the tree must stay re
 export interface HeatState {
   tick: number
   stamps: Map<string, number>
+  /** The exact path of the most recent event — the only thing that flashes. */
+  last: string | null
 }
 
-export const emptyHeat = (): HeatState => ({ tick: 0, stamps: new Map() })
+export const emptyHeat = (): HeatState => ({ tick: 0, stamps: new Map(), last: null })
 
 /** Every ancestor of `a/b/c.ts`: ['a', 'a/b', 'a/b/c.ts'] — closed folders light up too. */
 export function ancestors (path: string): string[] {
@@ -34,8 +36,10 @@ export function touch (state: HeatState, path: string | null | undefined): HeatS
   if (!path) return state
   const tick = state.tick + 1
   const stamps = new Map(state.stamps)
+  // ancestors are stamped so a closed folder still BRIGHTENS for changes inside
+  // it — but only the exact path is what changed, and only it flashes
   for (const p of ancestors(path)) stamps.set(p, tick)
-  return { tick, stamps }
+  return { tick, stamps, last: path }
 }
 
 /** Apply many events in order — used for the initial backfill. */
@@ -63,11 +67,12 @@ export const stampOf = (state: HeatState, path: string): number | null =>
   state.stamps.get(path) ?? null
 
 /**
- * True only for the paths touched by the most recent event — the file and every
- * folder above it. Drives the flash; everything else is unchanged this frame.
+ * True only for the exact path of the most recent event. Ancestors share its
+ * tick — that is what makes them brighten — so matching on the tick would flash
+ * the whole branch up to the root, which reads as "everything changed".
  */
 export const justChanged = (state: HeatState, path: string): boolean =>
-  state.tick > 0 && state.stamps.get(path) === state.tick
+  state.tick > 0 && state.last === path
 
 /**
  * Has this path been touched at all in the visible history?
@@ -80,6 +85,6 @@ export const hasHeat = (state: HeatState, path: string): boolean => state.stamps
 export function prune (state: HeatState, keep = 4000): HeatState {
   if (state.stamps.size <= keep) return state
   const sorted = [...state.stamps.entries()].sort((a, b) => b[1] - a[1]).slice(0, keep)
-  return { tick: state.tick, stamps: new Map(sorted) }
+  return { tick: state.tick, stamps: new Map(sorted), last: state.last }
 }
 // heat
