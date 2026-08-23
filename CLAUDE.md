@@ -47,6 +47,10 @@ Keep it at this file count. New concerns go into an existing file until it genui
 
 ## Things that will bite you
 
+- **The rename window is 500ms, and that is safe because matching is by inode.** Under heavy
+  filesystem load FSEvents can deliver the delete and the create hundreds of ms apart, and a
+  narrow window reports a rename as delete+create. An inode reappearing at a different path IS a
+  rename, so widening cannot pair unrelated files.
 - **macOS only reports `rename` / `change`.** Neither means what it says. `stat()` the path to
   decide created / modified / deleted. Missing path = deleted.
 - **Ignore rules are load-bearing, not a preference.** A real project here is 21,734 files;
@@ -134,6 +138,10 @@ are noise — ignore unknown types silently, the format changes without notice.
 - **Claude-originated rows carry the real Claude Code mark, not `⌘`.** `⌘` means "command key".
   The path is inlined in `ClaudeIcon.tsx` from thesvg.org/icon/claude-code, filled with
   `currentColor` and toned with Anthropic's `#D97757` — no asset request, no external host.
+- **The open project lives in the URL hash.** A reload, a bookmark or a second tab lands on the
+  same folder. A hash rather than a path because the server serves index.html for unknown paths —
+  a hash never reaches it, so there is nothing to misroute. A URL naming a folder that no longer
+  exists falls back to the previous selection, then the first; it never blanks the screen.
 - **The view switch is not a filter.** Timeline / By topic stays in the feed column; the
   collapsible filter area holds the tabs, kind chips, path glob and time window.
 

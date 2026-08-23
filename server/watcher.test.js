@@ -83,6 +83,17 @@ test('decide: non-ENOENT stat error drops the event', () => {
   assert.equal(r, null)
 })
 
+test('a slow delete/create pair is still recognised as a rename', () => {
+  // the delivery gap that made this flake under load
+  const ok = () => ({ size: 1, mtimeMs: 2, ino: 42 })
+  const enoent = () => { throw Object.assign(new Error('x'), { code: 'ENOENT' }) }
+  let now = 1000
+  const seen = new Map([['old.txt', 42]]); const pending = new Map()
+  decide('/old.txt', 'old.txt', seen, pending, { statFn: enoent, now: () => now })
+  now += 300
+  assert.equal(decide('/new.txt', 'new.txt', seen, pending, { statFn: ok, now: () => now }).kind, 'renamed')
+})
+
 test('rename collapses inside the window, by inode, and not outside it', () => {
   const ok = () => ({ size: 1, mtimeMs: 2, ino: 42 })
   const enoent = () => { throw Object.assign(new Error('x'), { code: 'ENOENT' }) }

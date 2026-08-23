@@ -8,7 +8,7 @@ import {
   SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarProvider, SidebarRail, SidebarTrigger
 } from '@/components/ui/sidebar'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { StreamProvider } from '@/hooks/StreamProvider'
 import { useStream } from '@/hooks/useStream'
 import { AddFolderDialog } from '@/features/AddFolderDialog'
@@ -19,6 +19,7 @@ import { Rules } from '@/features/Rules'
 import { Usage } from '@/features/Usage'
 import { HeatTree } from '@/features/HeatTree'
 import { runningPaths } from '@/features/timeline'
+import { folderFromHash, hashForFolder, pickFolder } from '@/features/url-state'
 import { api, type Folder, type OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -88,16 +89,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         )}
 
         <TabsContent value="activity" className="min-h-0 flex-1 overflow-hidden">
-          <ResizablePanelGroup orientation="horizontal" className="h-full">
-            <ResizablePanel defaultSize="62" minSize="30" className="min-h-0 overflow-hidden">
-              <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
-                folderId={folder.id} filtersOpen={filtersOpen} />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize="38" minSize="20" className="min-h-0 overflow-hidden">
-              <DetailPanel event={selected} folder={folder} onMute={mute} />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+          <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
+            folderId={folder.id} filtersOpen={filtersOpen} />
         </TabsContent>
 
         <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">
@@ -112,6 +105,17 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           <Usage folderId={folder.id} live={events} />
         </TabsContent>
       </Tabs>
+      <Sheet open={!!selected} onOpenChange={o => { if (!o) setSelected(null) }}>
+        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetHeader className="shrink-0 border-b px-4 py-3">
+            <SheetTitle className="text-xs font-medium">{t('detail.title')}</SheetTitle>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {selected && <DetailPanel event={selected} folder={folder} onMute={mute} />}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {heatOpen && (
         <div className="w-64 min-h-0 shrink-0 overflow-hidden">
           <HeatTree folderId={folder.id} events={events} running={running} />
@@ -124,7 +128,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
 
 export default function App () {
   const [folders, setFolders] = useState<Folder[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(() => folderFromHash(window.location.hash))
   const [dialog, setDialog] = useState(false)
   const [offline, setOffline] = useState(false)
 
@@ -132,13 +136,29 @@ export default function App () {
     try {
       const f = await api.folders()
       setFolders(f); setOffline(false)
-      setActiveId(prev => (prev && f.some(x => x.id === prev) ? prev : f[0]?.id ?? null))
+      setActiveId(prev => pickFolder(f, folderFromHash(window.location.hash), prev))
     } catch {
       setOffline(true)
     }
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // keep the URL in step, and follow it when the user goes back or edits it
+  useEffect(() => {
+    const want = hashForFolder(activeId)
+    if (activeId && window.location.hash !== want) {
+      window.history.replaceState(null, '', want || window.location.pathname)
+    }
+  }, [activeId])
+  useEffect(() => {
+    const onHash = () => {
+      const id = folderFromHash(window.location.hash)
+      if (id) setActiveId(id)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
   useEffect(() => {
     if (!offline) return
     const id = setInterval(load, 5000)

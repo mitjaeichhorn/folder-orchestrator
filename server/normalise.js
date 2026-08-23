@@ -1,7 +1,11 @@
 import { statSync } from 'node:fs'
 import { log } from './log.js'
 
-export const RENAME_WINDOW = 100
+// 500ms, not 100: under heavy filesystem load FSEvents can deliver the delete
+// and the create far apart, and the rename is then reported as two events.
+// Widening is close to free because matching is by INODE — an inode reappearing
+// at a different path IS a rename, so a longer window cannot pair unrelated files.
+export const RENAME_WINDOW = 500
 
 // A rename preserves the inode — that is the only honest signal macOS gives us.
 // Matching on basename cannot work: a rename is precisely a change of basename.
