@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
  * the colgroup arity collapses the whole table's widths.
  */
 export function FeedRow ({
-  e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom,
+  e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
   onLocate, locatable, expanded, onToggle
 }: {
   e: NestedEvent
@@ -29,6 +29,7 @@ export function FeedRow ({
   onSelect: (e: NestedEvent) => void
   running?: Set<string>
   onZoom: (path: string) => void
+  gone?: ReadonlySet<string>
   onLocate?: (path: string | null) => void
   locatable?: boolean
   expanded?: boolean
@@ -92,7 +93,7 @@ export function FeedRow ({
               </span>
             )}
 
-          {e.path && isImagePathSafe(e.path) && e.kind !== 'deleted' && (
+          {e.path && isImagePathSafe(e.path) && e.kind !== 'deleted' && !gone?.has(e.path) && (
             <Thumb folderId={folderId} path={e.path} onOpen={onZoom} />
           )}
 

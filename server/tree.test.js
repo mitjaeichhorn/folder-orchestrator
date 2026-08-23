@@ -64,3 +64,28 @@ test('truncation is reported, never silent', t => {
   assert.equal(tree.nodes, 1)
   assert.ok(MAX_NODES > 0)
 })
+
+test('files carry their mtime so every file can be ranked by last change', t => {
+  const d = tmp(t)
+  writeFileSync(join(d, 'a.ts'), 'x')
+  mkdirSync(join(d, 'sub'))
+  writeFileSync(join(d, 'sub/b.ts'), 'y')
+  const tree = buildTree({ id: 'F', path: d, ignore: [] })
+  const files = []
+  const walk = ns => ns.forEach(n => { if (n.d === 0) files.push(n); if (n.c) walk(n.c) })
+  walk(tree.children)
+  assert.equal(files.length, 2)
+  for (const f of files) {
+    assert.equal(typeof f.m, 'number', f.p)
+    assert.ok(f.m > 0, 'a real timestamp, not a placeholder')
+  }
+})
+
+test('directories carry no mtime — only files are ranked', t => {
+  const d = tmp(t)
+  mkdirSync(join(d, 'sub'))
+  writeFileSync(join(d, 'sub/a.ts'), 'x')
+  const tree = buildTree({ id: 'F', path: d, ignore: [] })
+  const dir = tree.children.find(n => n.d === 1)
+  assert.equal(dir.m, undefined)
+})

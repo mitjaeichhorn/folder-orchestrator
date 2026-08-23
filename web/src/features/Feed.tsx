@@ -7,6 +7,7 @@ import { matchEvent, ALL_KINDS } from '@shared/glob.js'
 import { gaps, gapPx, isRunning, runningFor, isStalled } from './timeline'
 import { Lightbox } from './Lightbox'
 import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './collapse'
+import { deletedPaths } from './churn'
 import { FeedRow } from './FeedRow'
 import { FileList } from './FileList'
 import { KindGlyph } from './KindGlyph'
@@ -67,6 +68,8 @@ export function Feed ({
   const rows = useMemo(() => nestByCall(flatRows), [flatRows])
 
   const rowGaps = useMemo(() => gaps(rows.map(e => e.ts)), [rows])
+  // do not request a thumbnail for a file we have already seen deleted
+  const gone = useMemo(() => deletedPaths(flatRows), [flatRows])
 
   // Tick only while a call is in flight — an idle feed must not re-render every second.
   const anyRunning = useMemo(() => rows.some(isRunning), [rows])
@@ -198,7 +201,7 @@ export function Feed ({
                   <FeedRow
                     e={e} gap={rowGaps[i]} now={now} depth={0}
                     folderId={folderId} selected={selected} onSelect={onSelect}
-                    running={running} onZoom={setZoom}
+                    running={running} onZoom={setZoom} gone={gone}
                     onLocate={onLocate} locatable={locatable}
                     expanded={!collapsedCalls.has(String(e.id))}
                     onToggle={() => toggleCall(String(e.id))} />
@@ -206,7 +209,7 @@ export function Feed ({
                     <FeedRow key={c.id ?? `${c.ts}-${c.path}`}
                       e={c} gap={0} now={now} depth={1}
                       folderId={folderId} selected={selected} onSelect={onSelect}
-                      running={running} onZoom={setZoom}
+                      running={running} onZoom={setZoom} gone={gone}
                       onLocate={onLocate} locatable={locatable} />
                   ))}
                   </Fragment>

@@ -172,8 +172,15 @@
   "feed.collapseCall": "Hide files from this call",
   "app.tabTitle": "{name} \u00b7 Folder Orchestrator",
   "view.byFile": "By file",
-  "files.empty": "No files have changed yet",
-  "files.count": "{n} files changed",
+  "files.empty": "No files in this project",
+  "files.count": "{n} files",
   "files.legend": "changed once \u2192 most often",
-  "files.changes": "changed {n} times"
+  "files.changes": "changed {n} times",
+  "files.showing": "showing {n}",
+  "files.showMore": "Show {n} more",
+  "files.remaining": "{n} more files",
+  "files.loading": "Reading the project\u2026",
+  "files.error": "Could not read the project tree",
+  "files.unobserved": "Not seen changing while watching \u2014 ranked by its file timestamp",
+  "files.notObserved": "\u2014"
 }

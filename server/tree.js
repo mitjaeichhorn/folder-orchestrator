@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { compile, shouldIgnore } from './ignore.js'
 import { log } from './log.js'
@@ -30,7 +30,14 @@ export function buildTree (folder) {
       if (shouldIgnore(rel, compiled)) continue
       state.count++
       if (e.isDirectory()) out.push({ n: e.name, p: rel, d: 1, c: walk(childAbs, depth + 1) })
-      else out.push({ n: e.name, p: rel, d: 0 })
+      else {
+        // mtime is the filesystem's own record of when a file last changed, so
+        // the By-file view can rank every file — including ones this tool has
+        // never seen change, because it was not watching at the time.
+        let m = 0
+        try { m = Math.round(statSync(childAbs).mtimeMs) } catch { /* vanished mid-walk */ }
+        out.push({ n: e.name, p: rel, d: 0, m })
+      }
     }
     return out
   }
