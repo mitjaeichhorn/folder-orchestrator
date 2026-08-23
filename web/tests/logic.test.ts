@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { matchEvent, globToRe, ALL_KINDS } from '../../shared/glob.js'
 import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED } from '../src/features/session-logic.ts'
+import { isAuthored, AUTHORED_TONE } from '../src/features/authored.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -68,4 +69,40 @@ test('filesTouched dedups and drops null paths', () => {
     ev({ path: 'a.ts' }), ev({ path: 'a.ts' }), ev({ path: 'b.ts' }), ev({ path: null })
   ] as any)
   assert.deepEqual(files, ['a.ts', 'b.ts'])
+})
+
+// --- authored-text tone --------------------------------------------------
+
+test('a Bash description is authored text', () => {
+  assert.equal(isAuthored(ev({
+    kind: 'tool', tool: 'Bash', path: null,
+    detail: { input: { command: 'ls', description: 'Check what the console errors are' } }
+  })), true)
+})
+
+test('a user prompt is authored text', () => {
+  assert.equal(isAuthored(ev({ kind: 'prompt', path: null, detail: { text: 'build' } })), true)
+})
+
+test('a bare command with no description is not authored text', () => {
+  assert.equal(isAuthored(ev({
+    kind: 'tool', tool: 'Bash', path: null, detail: { input: { command: 'ls' } }
+  })), false, 'a raw command is a machine value, not a written label')
+})
+
+test('a path-bearing tool call is a fact, not a label', () => {
+  assert.equal(isAuthored(ev({
+    kind: 'tool', tool: 'Edit', path: 'a.ts', detail: { input: { description: 'x' } }
+  })), false)
+})
+
+test('filesystem events are never authored text', () => {
+  for (const kind of ['created', 'modified', 'deleted', 'renamed', 'alert']) {
+    assert.equal(isAuthored(ev({ kind, path: 'a.ts' })), false, kind)
+  }
+})
+
+test('the authored tone is neon green and italic', () => {
+  assert.match(AUTHORED_TONE, /lime/, 'neon green')
+  assert.match(AUTHORED_TONE, /italic/)
 })

@@ -1,0 +1,18 @@
+import type { OrchEvent } from '@/lib/api'
+
+/**
+ * Neon green italic means "someone wrote this": your prompt (the topic), or the
+ * agent's own description of a command. Distinct from paths, which are machine
+ * facts, and from tool names, which are violet.
+ *
+ * Kept free of runtime imports so it stays directly testable.
+ */
+export const AUTHORED_TONE = 'text-lime-300 italic'
+
+/** Is this row's label authored text rather than a path or a machine value? */
+export function isAuthored (e: OrchEvent): boolean {
+  if (e.kind === 'prompt') return true
+  if (e.kind !== 'tool') return false
+  if (e.path) return false                      // a path is a fact, not a label
+  return !!e.detail?.input?.description         // only the written description counts
+}

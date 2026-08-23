@@ -6,6 +6,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { matchEvent, ALL_KINDS, isImagePath } from '@shared/glob.js'
 import { GLYPH, TONE, rowText } from './event-view'
+import { isAuthored, AUTHORED_TONE } from './authored'
 import { gaps, gapPx, fmtGap, isCapped } from './timeline'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
@@ -146,7 +147,8 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
                         {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
                           <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
                         )}
-                        <span className="truncate font-mono text-xs">
+                        <span className={cn('truncate text-xs',
+                          isAuthored(e) ? AUTHORED_TONE : 'font-mono')}>
                           {e.path && e.kind !== 'tool'
                             ? <FilePath path={rowText(e)} />
                             : rowText(e)}

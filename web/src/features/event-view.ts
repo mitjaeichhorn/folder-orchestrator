@@ -1,6 +1,8 @@
 import type { OrchEvent } from '@/lib/api'
 import { t } from '@/i18n'
 
+export { AUTHORED_TONE, isAuthored } from './authored'
+
 export const GLYPH: Record<string, string> = {
   created: '✚', modified: '✎', deleted: '✖', renamed: '↻', tool: '⌘', prompt: '▸', alert: '⚠'
 }

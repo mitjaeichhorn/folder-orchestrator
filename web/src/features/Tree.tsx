@@ -6,6 +6,7 @@ import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { isImagePath } from '@shared/glob.js'
 import { GLYPH, TONE, rowText } from './event-view'
+import { isAuthored, AUTHORED_TONE } from './authored'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -40,7 +41,7 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
               className="hover:bg-muted/40 flex w-full items-center gap-2 px-3 py-2 text-left">
               {tOpen ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
               <span className={cn('min-w-0 flex-1 truncate',
-                tg.topic === NO_TOPIC && 'text-muted-foreground italic')}>
+                tg.topic === NO_TOPIC ? 'text-muted-foreground italic' : AUTHORED_TONE)}>
                 {tg.topic === NO_TOPIC ? t('tree.noTopic') : tg.topic}
               </span>
               <span className="text-muted-foreground shrink-0 text-xs">
@@ -86,7 +87,8 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
                       </span>
                       <span className={cn('w-4 shrink-0', TONE[e.kind])}>{GLYPH[e.kind]}</span>
                       {e.tool && <span className="w-20 shrink-0 truncate font-mono text-xs text-violet-400">{e.tool}</span>}
-                      <span className="min-w-0 flex-1 truncate font-mono text-xs" title={rowText(e)}>
+                      <span className={cn('min-w-0 flex-1 truncate text-xs',
+                        isAuthored(e) ? AUTHORED_TONE : 'font-mono')} title={rowText(e)}>
                         {fg.path === NO_FILE || e.kind === 'tool' ? rowText(e) : t(`kind.${e.kind}`)}
                       </span>
                       {e.actor === 'claude' && (
