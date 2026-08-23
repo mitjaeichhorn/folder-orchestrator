@@ -1,6 +1,6 @@
 # Folder Orchestrator
 
-**A control view over autonomous agent work.**
+**Make Claude Code's work visible. A control view over autonomous agent work.**
 
 Coding agents no longer run one instruction at a time while you watch. You hand over a task and they
 go — spawning sub-agents, working in parallel worktrees, running for twenty minutes across a dozen
@@ -45,6 +45,13 @@ into an unexpected corner of the repo is a bright branch somewhere you were not 
 
 **"Is it looping?"** — files ranked by *how many times* they changed. A file rewritten eleven times
 is telling you something a file written once is not.
+
+**"What did it just write?"** — click any markdown file and read it rendered, instantly, the moment
+it lands. Agents write plans, specs, epics and task breakdowns as `.md` before they write any code,
+and that document is the thing worth reading — it is where you find out whether the agent understood
+the job. Reading it should not mean leaving the dashboard, finding the path, and opening an editor.
+Tables, headings and code blocks render properly; a Raw toggle shows the source when the syntax is
+what you are checking.
 
 **"What did it cost?"** — token usage per task, read from the transcript and joined to the prompt.
 
@@ -134,9 +141,21 @@ the map started answering "what was checked out" instead.
 
 ### The detail panel
 
-Click any row for the diff, the command, the token cost, and — for markdown files — a rendered
-preview. Diffs come from two places, because most files need the second: `Edit` tool calls carry
-their own `old_string`/`new_string`, and everything else asks git.
+Click any row for the diff, the command, the token cost, the file's length, and — for markdown — the
+document itself, rendered.
+
+That markdown view earns its place more than it sounds like it should. An agent's first output on
+any non-trivial task is prose: a plan, a spec, an epic, a task breakdown. Catching a
+misunderstanding there costs a sentence; catching it after implementation costs the implementation.
+So reading what it just wrote has to be one click from seeing that it wrote it, not a context
+switch into an editor.
+
+Rendered with GFM on, because every markdown file in a dev repo is GFM in practice — without it this
+project's own `CLAUDE.md` renders its stack table as a wall of pipes. Raw HTML stays off: a watched
+tree can be any repository you cloned, so its markdown is untrusted input to this page.
+
+Diffs come from two places, because most files need the second: `Edit` tool calls carry their own
+`old_string`/`new_string`, and everything else asks git.
 
 ![Detail panel](docs/screenshots/03-detail-markdown.png)
 
