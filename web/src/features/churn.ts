@@ -1,3 +1,4 @@
+import { makeRamp, rampCss, shareOf } from './gradient.ts'
 import type { FileGroup } from './group-by-file.ts'
 import { NO_FILE } from './group-by-file.ts'
 
@@ -28,10 +29,7 @@ export const maxChanges = (files: FileGroup[]): number =>
  * current view rather than an absolute threshold: on a quiet folder three edits
  * is the busiest thing there is, and the ramp should still say so.
  */
-export function churnShare (changes: number, max: number): number {
-  if (!Number.isFinite(changes) || changes <= 1 || max <= 1) return 0
-  return Math.min(1, (changes - 1) / (max - 1))
-}
+export const churnShare = (changes: number, max: number) => shareOf(changes, max)
 
 export const CHURN_STOPS = [
   { at: 1.00, color: 'var(--color-rose-400)' },    // reworked most
@@ -39,22 +37,8 @@ export const CHURN_STOPS = [
   { at: 0.00, color: 'var(--color-sky-400)' }      // changed once
 ] as const
 
-/** Interpolated in OKLab, like the heat ramp, so midpoints stay even. */
-export function churnColor (share: number): string {
-  const x = Number.isFinite(share) ? Math.min(1, Math.max(0, share)) : 0
-  for (let i = 0; i < CHURN_STOPS.length - 1; i++) {
-    const hot = CHURN_STOPS[i]
-    const cold = CHURN_STOPS[i + 1]
-    if (x <= hot.at && x >= cold.at) {
-      const span = hot.at - cold.at
-      const p = span === 0 ? 1 : (x - cold.at) / span
-      if (p >= 0.999) return hot.color
-      if (p <= 0.001) return cold.color
-      return `color-mix(in oklab, ${hot.color} ${Math.round(p * 100)}%, ${cold.color})`
-    }
-  }
-  return CHURN_STOPS[CHURN_STOPS.length - 1].color
-}
+/** Frequency ramp, same method as recency — see gradient.ts. */
+export const churnColor = makeRamp(CHURN_STOPS)
 
 export interface FileRow {
   path: string
@@ -169,3 +153,6 @@ export function deletedPaths (events: Array<{ path?: string | null; kind?: strin
   }
   return out
 }
+
+/** The churn ramp as a CSS gradient, for a legend. */
+export const churnCss = () => rampCss(CHURN_STOPS)

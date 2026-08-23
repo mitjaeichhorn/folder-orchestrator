@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
 import { pruneToActive, activeFolders, shouldPulse } from '../src/features/prune-tree.ts'
-import { heatColor, heatOpacity } from '../src/features/heat-color.ts'
+import { heatColor, heatStyle } from '../src/features/heat-color.ts'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/locate.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
@@ -209,10 +209,12 @@ test('out-of-range and non-finite heat clamps instead of producing garbage', () 
   assert.equal(heatColor(NaN), 'var(--color-muted-foreground)')
 })
 
-test('opacity rises with heat and never reaches invisible', () => {
-  assert.ok(heatOpacity(0) >= 0.4, 'cold entries stay readable')
-  assert.equal(heatOpacity(1), 1)
-  assert.ok(heatOpacity(0.5) > heatOpacity(0.1))
+test('heat is carried by colour alone, never opacity', () => {
+  // element opacity also fades the background, which silently weakened the
+  // locate highlight on exactly the cold branches it exists to reveal
+  for (const h of [0, 0.5, 1]) {
+    assert.deepEqual(Object.keys(heatStyle(h)), ['color'])
+  }
 })
 
 // --- pulse scope ---------------------------------------------------------

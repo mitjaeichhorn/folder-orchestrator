@@ -1,9 +1,9 @@
+import { makeRamp, rampCss } from './gradient.ts'
+
 /**
- * Heat ramp: just-edited is white, cooling through yellow and orange, then
- * fading into the muted grey the rest of the tree sits at.
- *
- * Stops are ordered hottest-first and interpolated in OKLab, so the midpoints
- * stay perceptually even instead of going muddy the way sRGB blending does.
+ * Recency: just-edited is white, cooling through yellow and orange into the
+ * muted grey the rest of the tree sits at. Built with the shared ramp method —
+ * see gradient.ts for the rules every ramp here follows.
  */
 export const HEAT_STOPS = [
   { at: 1.00, color: '#ffffff' },                        // just edited
@@ -12,23 +12,17 @@ export const HEAT_STOPS = [
   { at: 0.00, color: 'var(--color-muted-foreground)' }   // cold
 ] as const
 
-const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0)
+export const heatColor = makeRamp(HEAT_STOPS)
 
-export function heatColor (h: number): string {
-  const x = clamp01(h)
-  for (let i = 0; i < HEAT_STOPS.length - 1; i++) {
-    const hot = HEAT_STOPS[i]
-    const cold = HEAT_STOPS[i + 1]
-    if (x <= hot.at && x >= cold.at) {
-      const span = hot.at - cold.at
-      const share = span === 0 ? 1 : (x - cold.at) / span
-      if (share >= 0.999) return hot.color
-      if (share <= 0.001) return cold.color
-      return `color-mix(in oklab, ${hot.color} ${Math.round(share * 100)}%, ${cold.color})`
-    }
-  }
-  return HEAT_STOPS[HEAT_STOPS.length - 1].color
-}
+/**
+ * Heat is carried by COLOUR ALONE — never element opacity.
+ *
+ * Opacity dims an element's background as well as its text, so a cold branch cut
+ * the locate highlight from 12% to under 6% alpha: the reveal was faintest
+ * exactly where it exists to help. The ramp already spans white to muted grey,
+ * which is separation enough without also fading the element.
+ */
+export const heatStyle = (h: number) => ({ color: heatColor(h) })
 
-/** Cold entries stay legible; hot ones sit at full strength. */
-export const heatOpacity = (h: number) => 0.45 + clamp01(h) * 0.55
+/** The recency ramp as a CSS gradient, for a legend. */
+export const heatCss = () => rampCss(HEAT_STOPS)

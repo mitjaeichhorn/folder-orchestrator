@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { config } from '@/config'
 import { groupByFile } from './group-by-file'
-import { allFilesByLastChange, treeFiles, maxChanges, churnShare, churnColor, changedPaths, deletedPaths } from './churn'
+import { allFilesByLastChange, treeFiles, maxChanges, churnShare, churnColor, churnCss, changedPaths, deletedPaths } from './churn'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import type { OrchEvent } from '@/lib/api'
@@ -93,7 +93,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
         <span className="ml-auto flex items-center gap-1.5">
           {t('files.legend')}
           <span className="inline-block h-2 w-16 rounded-full"
-            style={{ background: `linear-gradient(to right, ${churnColor(0)}, ${churnColor(0.55)}, ${churnColor(1)})` }} />
+            style={{ background: churnCss() }} />
         </span>
       </div>
 

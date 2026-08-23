@@ -161,6 +161,27 @@ are noise — ignore unknown types silently, the format changes without notice.
   later becomes a new JSON file rather than an archaeology pass through every screen — and the
   lint guard that enforces it is the same mechanism. Dates and numbers go through `Intl`.
 
+## Colour ramps
+
+There is **one** gradient method — `web/src/features/gradient.ts`. A new ramp is a
+list of stops, never new interpolation code. The rules it encodes:
+
+- Stops run hot → cold, `at` is a position on the 0..1 scale, and callers
+  normalise their own units first (`shareOf`) so the ramp never knows what it
+  measures.
+- Interpolation is `color-mix(in oklab, …)`; endpoints return their stop verbatim
+  so "fully hot" is exactly the declared colour.
+- Input is clamped including non-finite — a ramp must never emit `NaN%`, which
+  renders as nothing.
+- **Colour only, never element opacity.** Opacity fades the background as well as
+  the text, which silently weakened the locate highlight on precisely the cold
+  branches it exists to reveal: a 12% band resolved to under 6%. Measured, not
+  theoretical.
+- Two ramps that can appear together must not share a hue family — two signals in
+  one colour read as one signal. Recency is white→yellow→orange→grey, churn is
+  sky→violet→rose, locate is blue-400, and there are tests asserting they stay
+  disjoint.
+
 ## Gotchas that cost time once
 
 - **index.html must not be cached.** It names the content-hashed bundle, so a cached copy
@@ -171,6 +192,10 @@ are noise — ignore unknown types silently, the format changes without notice.
   per-column widths and split the table into five equal columns — a layout that collapsed only
   while something was running, which is why it looked intermittent. A `<colgroup>` pins the
   widths regardless of what the first row happens to be.
+- **A module reachable from `web/tests/` must use explicit `.ts` extensions on its
+  runtime imports.** Node's type-stripping resolver will not guess them, while Vite
+  is happy either way — so an extensionless import passes `npm run build` and fails
+  only in the test run.
 - **shadcn components hardcode variant-scoped classes.** `SheetContent` carries
   `data-[side=right]:sm:max-w-sm`; a plain `sm:max-w-2xl` loses to it and tailwind-merge will not
   dedupe across different variants. Override using the same variant form.

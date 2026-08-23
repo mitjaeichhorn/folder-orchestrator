@@ -4,7 +4,7 @@ import { config } from '@/config'
 import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
-import { heatColor, heatOpacity } from './heat-color'
+import { heatStyle } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
 import type { OrchEvent } from '@/lib/api'
@@ -27,7 +27,7 @@ interface TreeResponse { nodes: number; truncated: boolean; children: Node[] }
 const countNodes = (nodes: Node[]): number =>
   nodes.reduce((n, x) => n + 1 + (x.c ? countNodes(x.c) : 0), 0)
 
-const heatStyle = (h: number) => ({ opacity: heatOpacity(h), color: heatColor(h) })
+
 
 const EMPTY_CHAIN: ReadonlySet<string> = new Set<string>()
 
