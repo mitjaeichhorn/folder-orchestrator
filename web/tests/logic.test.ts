@@ -5,6 +5,7 @@ import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED }
 import { isAuthored, AUTHORED_TONE } from '../src/features/authored.ts'
 import { parseTool } from '../src/features/tool-name.ts'
 import { fmtTokens } from '../src/features/usage-format.ts'
+import { collapseRepeats } from '../src/features/collapse.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -155,4 +156,69 @@ test('token counts compact without losing the magnitude', () => {
 
 test('non-finite and negative token counts render as zero, never NaN', () => {
   for (const v of [NaN, Infinity, -5, -Infinity]) assert.equal(fmtTokens(v), '0')
+})
+
+// --- collapsing repeated rows -------------------------------------------
+const fs = (o: any) => ev({ kind: 'modified', ...o })
+
+test('consecutive identical file events collapse into one counted row', () => {
+  const out = collapseRepeats([
+    fs({ id: 3, path: 'a.py', ts: 3000 }),
+    fs({ id: 2, path: 'a.py', ts: 2800 }),
+    fs({ id: 1, path: 'a.py', ts: 2600 })
+  ] as any)
+  assert.equal(out.length, 1)
+  assert.equal(out[0].repeat, 3)
+  assert.equal(out[0].id, 3, 'the newest row is the one kept')
+})
+
+test('a row that repeats only once carries no count', () => {
+  const out = collapseRepeats([fs({ path: 'a.py', ts: 1000 })] as any)
+  assert.equal(out[0].repeat, undefined, 'a single event must not be labelled x1')
+})
+
+test('events outside the window stay separate', () => {
+  const out = collapseRepeats([
+    fs({ path: 'a.py', ts: 10_000 }),
+    fs({ path: 'a.py', ts: 1000 })
+  ] as any)
+  assert.equal(out.length, 2)
+})
+
+test('different paths, kinds or actors never merge', () => {
+  assert.equal(collapseRepeats([fs({ path: 'a.py', ts: 2 }), fs({ path: 'b.py', ts: 1 })] as any).length, 2)
+  assert.equal(collapseRepeats([fs({ path: 'a.py', ts: 2 }), fs({ path: 'a.py', ts: 1, kind: 'created' })] as any).length, 2)
+  assert.equal(collapseRepeats([fs({ path: 'a.py', ts: 2, actor: 'claude' }), fs({ path: 'a.py', ts: 1, actor: 'external' })] as any).length, 2)
+})
+
+test('tool and prompt rows are never collapsed — each is separate work', () => {
+  const out = collapseRepeats([
+    ev({ kind: 'tool', tool: 'Bash', path: null, ts: 2000 }),
+    ev({ kind: 'tool', tool: 'Bash', path: null, ts: 1900 })
+  ] as any)
+  assert.equal(out.length, 2)
+})
+
+test('alerts are never collapsed — each one is a separate thing to notice', () => {
+  const out = collapseRepeats([
+    ev({ kind: 'alert', path: '.env', ts: 2000 }),
+    ev({ kind: 'alert', path: '.env', ts: 1900 })
+  ] as any)
+  assert.equal(out.length, 2)
+})
+
+test('a run of repeats does not swallow the next distinct event', () => {
+  const out = collapseRepeats([
+    fs({ path: 'a.py', ts: 3000 }), fs({ path: 'a.py', ts: 2900 }),
+    fs({ path: 'b.py', ts: 2800 }),
+    fs({ path: 'a.py', ts: 2700 })
+  ] as any)
+  assert.deepEqual(out.map(r => [r.path, r.repeat]), [['a.py', 2], ['b.py', undefined], ['a.py', undefined]])
+})
+
+test('collapsing never loses an event from the count', () => {
+  const rows = Array.from({ length: 20 }, (_, i) =>
+    fs({ path: i % 3 === 0 ? 'x.py' : 'y.py', ts: 5000 - i * 50 })) as any
+  const total = collapseRepeats(rows).reduce((n, r) => n + (r.repeat ?? 1), 0)
+  assert.equal(total, 20)
 })

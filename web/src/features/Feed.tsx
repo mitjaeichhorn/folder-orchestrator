@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +12,7 @@ import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { Lightbox } from './Lightbox'
 import { ToolLabel } from './ToolLabel'
+import { collapseRepeats } from './collapse'
 import { KindGlyph } from './KindGlyph'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
@@ -51,7 +52,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
 
   // the ONE predicate — same module the server uses
   const rows = useMemo(
-    () => events.filter(e => matchEvent(e, filter)).slice().reverse(),
+    () => collapseRepeats(events.filter(e => matchEvent(e, filter)).slice().reverse()),
     [events, filter]
   )
 
@@ -135,13 +136,11 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
             <table className="w-full table-fixed text-sm">
               <tbody>
                 {rows.map((e, i) => (
-                  <tr key={e.id ?? `${e.ts}-${e.path}`}
-                    onClick={() => onSelect(e)}
-                    className={cn('hover:bg-muted/50 cursor-pointer',
-                      selected?.id === e.id && 'bg-muted')}>
-                    <td className="w-24 px-3 py-1 align-top">
-                      {isRunning(e) && (
-                        <div className="mb-0.5 ml-1 flex" style={{ height: gapPx(runningFor(e.ts, now)) }}>
+                  <Fragment key={e.id ?? `${e.ts}-${e.path}`}>
+                  {isRunning(e) && (
+                    <tr>
+                      <td colSpan={5} className="p-0">
+                        <div className="ml-4 flex" style={{ height: gapPx(runningFor(e.ts, now)) }}>
                           <div className={cn('h-full border-l border-dashed',
                             isStalled(e.ts, now) ? 'border-amber-500/50' : 'border-lime-400/60 animate-pulse')} />
                           <span className={cn('self-end pb-0.5 pl-1.5 text-[10px] tabular-nums',
@@ -149,7 +148,14 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                             {fmtGap(runningFor(e.ts, now)) || '0s'}
                           </span>
                         </div>
-                      )}
+                      </td>
+                    </tr>
+                  )}
+                  <tr
+                    onClick={() => onSelect(e)}
+                    className={cn('hover:bg-muted/50 cursor-pointer',
+                      selected?.id === e.id && 'bg-muted')}>
+                    <td className="w-24 px-3 py-1 align-top">
                       <div className="text-muted-foreground font-mono text-xs tabular-nums">{fmtTime(e.ts)}</div>
                       {/* elapsed time made visible: the dash spans the gap to the
                           older event below, so a burst reads dense and a pause reads long */}
@@ -177,6 +183,11 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                         {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
                           <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
                         )}
+                        {e.repeat && e.repeat > 1 && (
+                          <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 font-mono text-[10px] tabular-nums">
+                            {t('feed.repeat', { n: e.repeat })}
+                          </span>
+                        )}
                         <span className={cn('truncate text-xs',
                           isAuthored(e) ? AUTHORED_TONE : 'font-mono')}>
                           {e.path && e.kind !== 'tool'
@@ -196,6 +207,7 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                       )}
                     </td>
                   </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

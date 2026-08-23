@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
+import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
+import { pruneToActive, activeFolders } from '../src/features/prune-tree.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
   assert.deepEqual(ancestors('a/b/c.ts'), ['a', 'a/b', 'a/b/c.ts'])
@@ -116,4 +117,46 @@ test('the stamp changes on every touch so a re-touch can restart the flash', () 
   s = touch(s, 'b.ts')
   s = touch(s, 'a.ts')
   assert.notEqual(stampOf(s, 'a.ts'), first, 'a new stamp is what remounts the node')
+})
+
+// --- active-only view ----------------------------------------------------
+const TREE: any = [
+  { n: 'src', p: 'src', d: 1, c: [
+    { n: 'lib', p: 'src/lib', d: 1, c: [{ n: 'a.ts', p: 'src/lib/a.ts', d: 0 }] },
+    { n: 'cold.ts', p: 'src/cold.ts', d: 0 }
+  ] },
+  { n: 'docs', p: 'docs', d: 1, c: [{ n: 'x.md', p: 'docs/x.md', d: 0 }] },
+  { n: 'top.ts', p: 'top.ts', d: 0 }
+]
+
+test('pruning to active keeps the whole route down to a changed file', () => {
+  const s = touch(emptyHeat(), 'src/lib/a.ts')
+  const kept = pruneToActive(TREE, p => hasHeat(s, p))
+  assert.deepEqual(kept.map((n: any) => n.p), ['src'])
+  assert.deepEqual(kept[0].c.map((n: any) => n.p), ['src/lib'], 'the untouched sibling file is dropped')
+  assert.deepEqual(kept[0].c[0].c.map((n: any) => n.p), ['src/lib/a.ts'])
+})
+
+test('an untouched tree prunes to nothing rather than to everything', () => {
+  assert.deepEqual(pruneToActive(TREE, p => hasHeat(emptyHeat(), p)), [])
+})
+
+test('a touched top-level file survives pruning', () => {
+  const s = touch(emptyHeat(), 'top.ts')
+  assert.deepEqual(pruneToActive(TREE, p => hasHeat(s, p)).map((n: any) => n.p), ['top.ts'])
+})
+
+test('activeFolders lists only folders, and only touched ones', () => {
+  let s = touch(emptyHeat(), 'src/lib/a.ts')
+  s = touch(s, 'docs/x.md')
+  const folders = activeFolders(TREE, p => hasHeat(s, p))
+  assert.deepEqual(folders.sort(), ['docs', 'src', 'src/lib'])
+  assert.ok(!folders.includes('src/lib/a.ts'), 'files are not folders')
+})
+
+test('hasHeat is about being touched at all, not about being recent', () => {
+  let s = touch(emptyHeat(), 'a.ts')
+  for (let i = 0; i < HEAT_SPAN * 2; i++) s = touch(s, `other${i}.ts`)
+  assert.equal(heatOf(s, 'a.ts'), MIN_HEAT, 'fully dimmed')
+  assert.equal(hasHeat(s, 'a.ts'), true, 'but still active — it did change in this session')
 })

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
-import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, type HeatState } from './heat'
+import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
+import { pruneToActive, activeFolders } from './prune-tree'
+import { Switch } from '@/components/ui/switch'
+import { FoldVertical } from 'lucide-react'
 import type { OrchEvent } from '@/lib/api'
 import { t } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -18,6 +21,9 @@ function useDebounced<T> (value: T, ms: number): T {
 
 interface Node { n: string; p: string; d: 0 | 1; c?: Node[] }
 interface TreeResponse { nodes: number; truncated: boolean; children: Node[] }
+
+const countNodes = (nodes: Node[]): number =>
+  nodes.reduce((n, x) => n + 1 + (x.c ? countNodes(x.c) : 0), 0)
 
 /** Heat drives opacity and a warm tint; both scale together so hot reads as hot. */
 function heatStyle (h: number) {
@@ -75,6 +81,7 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
   const [tree, setTree] = useState<TreeResponse | null>(null)
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [error, setError] = useState(false)
+  const [activeOnly, setActiveOnly] = useState(false)
   const firstLoad = useRef(true)
 
   // A created or deleted file changes the SHAPE of the tree, so the structure
@@ -118,14 +125,40 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
     return n
   })
 
-  const roots = useMemo(() => tree?.children ?? [], [tree])
+  const isActive = (p: string) => hasHeat(heat, p)
+
+  const roots = useMemo(() => {
+    const all = tree?.children ?? []
+    return activeOnly ? pruneToActive(all as never, isActive) : all
+    // keyed on heat.tick rather than heat: pruning a large tree on every render
+    // is the one thing here that could get expensive
+  }, [tree, activeOnly, heat.tick])
+
+  /** Collapse every folder that has not been touched; leave the active ones open. */
+  const collapseInactive = () => {
+    if (!tree) return
+    setOpen(new Set(activeFolders(tree.children as never, isActive)))
+  }
 
   return (
     <div data-slot="heat-tree" className="flex h-full min-h-0 flex-col border-l">
-      <div className="text-muted-foreground flex items-center gap-2 border-b px-2 py-1.5 text-xs">
+      <div className="text-muted-foreground flex shrink-0 items-center gap-2 border-b px-2 py-1.5 text-xs">
         <span className="uppercase">{t('heat.title')}</span>
-        {tree && <span className="ml-auto tabular-nums">{t('heat.nodes', { n: tree.nodes })}</span>}
+        <button onClick={collapseInactive} title={t('heat.collapseInactive')}
+          className="hover:text-foreground ml-auto shrink-0">
+          <FoldVertical className="size-3.5" />
+        </button>
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5" title={t('heat.activeOnlyHint')}>
+          <span>{t('heat.activeOnly')}</span>
+          <Switch checked={activeOnly} onCheckedChange={setActiveOnly} className="scale-75" />
+        </label>
       </div>
+      {tree && (
+        <div className="text-muted-foreground/60 flex shrink-0 items-center justify-between border-b px-2 py-1 text-[10px] tabular-nums">
+          <span>{t('heat.nodes', { n: activeOnly ? countNodes(roots) : tree.nodes })}</span>
+          {activeOnly && <span>{t('heat.ofTotal', { n: tree.nodes })}</span>}
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto py-1">
         {error
           ? <p className="text-muted-foreground p-3 text-xs">{t('heat.error')}</p>
@@ -136,6 +169,9 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
                 {roots.map(n => (
                   <Branch key={n.p} node={n} heat={heat} depth={0} open={open} toggle={toggle} />
                 ))}
+                {activeOnly && roots.length === 0 && (
+                  <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>
+                )}
                 {tree.truncated && (
                   <p className="text-muted-foreground border-t px-2 py-2 text-[10px]">{t('heat.truncated')}</p>
                 )}

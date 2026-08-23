@@ -69,6 +69,13 @@ export const stampOf = (state: HeatState, path: string): number | null =>
 export const justChanged = (state: HeatState, path: string): boolean =>
   state.tick > 0 && state.stamps.get(path) === state.tick
 
+/**
+ * Has this path been touched at all in the visible history?
+ * Ancestors are stamped too, so a folder is "active" when anything inside it
+ * changed — which is exactly what makes hiding the rest safe.
+ */
+export const hasHeat = (state: HeatState, path: string): boolean => state.stamps.has(path)
+
 /** Keep the map bounded — a long session must not grow it without limit. */
 export function prune (state: HeatState, keep = 4000): HeatState {
   if (state.stamps.size <= keep) return state

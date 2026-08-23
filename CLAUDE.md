@@ -80,6 +80,15 @@ Keep it at this file count. New concerns go into an existing file until it genui
 - **First tail reads the WHOLE transcript.** Tailing starts at EOF, so history is invisible
   otherwise — and for token accounting, history is the entire feature. The full pass is
   idempotent thanks to the dedupe above.
+- **Repeated file events are real, not a bug.** A tool that writes a file then formats it emits
+  two genuine events ~200ms apart; at second-resolution they read as a duplicated row. The feed
+  collapses consecutive same path+kind+actor rows inside 2s into one carrying a count. Never drop
+  the data — the count is what makes the repetition visible. Tool, prompt and alert rows are
+  never collapsed: each is separate work, however close together.
+- **An "active" branch is one that was touched at all, not one that is still bright.** `hasHeat`
+  is membership in the stamp map, independent of how far it has dimmed. Because every ancestor of
+  a touched path is stamped, filtering on it preserves the whole route to a changed file — no
+  descendant search needed.
 - **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
   branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
   rather than "how long ago was this".

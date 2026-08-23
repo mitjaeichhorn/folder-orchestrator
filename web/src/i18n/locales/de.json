@@ -65,5 +65,8 @@
   "tab.tokens": "Tokens",
   "usage.task": "Aufgabe",
   "usage.output": "Ausgabe",
-  "usage.thinking": "Denken"
+  "usage.thinking": "Denken",
+  "feed.repeat": "x{n}",
+  "heat.activeOnly": "Nur aktive",
+  "heat.collapseInactive": "Inaktive Ordner einklappen"
 }

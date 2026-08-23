@@ -140,5 +140,11 @@
   "usage.turns": "{n} turns",
   "usage.totalOut": "{n} output",
   "usage.totalThinking": "{n} thinking",
-  "usage.totalCacheRead": "{n} cache read"
+  "usage.totalCacheRead": "{n} cache read",
+  "feed.repeat": "x{n}",
+  "heat.collapseInactive": "Collapse folders with no activity",
+  "heat.activeOnly": "Active only",
+  "heat.activeOnlyHint": "Show only branches that have changed in this session",
+  "heat.ofTotal": "of {n}",
+  "heat.noneActive": "Nothing has changed yet \u2014 every branch is hidden"
 }
