@@ -9,6 +9,7 @@ import * as transcripts from './transcripts.js'
 import * as rules from './rules.js'
 import { serveImage } from './serve-file.js'
 import { buildTree } from './tree.js'
+import { pickFolder } from './pick-folder.js'
 import { log } from './log.js'
 
 const PORT = Number(process.env.ORCH_PORT || 4000)
@@ -135,6 +136,11 @@ const server = createServer(async (req, res) => {
     } else if (p.startsWith('/api/rules/') && req.method === 'DELETE') {
       db.removeRule(database, p.split('/')[3]); rules.reload()
       status = 204; res.writeHead(204).end()
+
+    // --- native folder dialog on the host (macOS). Blocks until the user answers.
+    } else if (p === '/api/pick-folder' && req.method === 'POST') {
+      const r = await pickFolder()
+      status = json(res, r.error ? 501 : 200, r)
 
     } else if (p === '/api/tree' && req.method === 'GET') {
       const folder = db.getFolder(database, url.searchParams.get('folder'))

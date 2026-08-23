@@ -2,7 +2,7 @@ import { readdirSync, statSync, existsSync, openSync, readSync, closeSync, watch
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import * as bus from './bus.js'
-import { relabelEvent } from './db.js'
+import { relabelEvent, updateEventDetail } from './db.js'
 import { log } from './log.js'
 
 const ROOT = process.env.ORCH_CLAUDE_DIR || join(homedir(), '.claude', 'projects')
@@ -20,6 +20,11 @@ const PATH_OF = {
 }
 
 const tailers = new Map() // folderId -> {dir, files: Map<name,{ino,offset,buf}>, handle}
+// toolUseId -> {eventId, folderId, ts}. A tool call is written to the transcript
+// when it STARTS; its result lands later with the same id, so the pair gives a
+// real duration and lets the UI show work in progress rather than after the fact.
+const inFlight = new Map()
+const MAX_INFLIGHT = 500
 const recent = new Map()  // folderId -> [{id, absPath, ts}]
 let db = null
 export function init (database) { db = database }
@@ -53,7 +58,7 @@ export function parseLine (line, folderId) {
     for (const b of blocks) {
       if (b?.type !== 'tool_use') continue
       const path = PATH_OF[b.name]?.(b.input) ?? null
-      const detail = { input: {} }
+      const detail = { input: {}, state: 'running', toolUseId: b.id ?? null }
       if (b.name === 'Edit' || b.name === 'MultiEdit') {
         const oldS = b.input?.old_string ?? ''
         const newS = b.input?.new_string ?? ''
@@ -73,6 +78,16 @@ export function parseLine (line, folderId) {
       })
     }
     return { events: out }
+  }
+
+  // tool_result closes a call that is already on screen
+  if (o.type === 'user' && Array.isArray(o.message?.content)) {
+    const results = []
+    for (const b of o.message.content) {
+      if (b?.type !== 'tool_result' || !b.tool_use_id) continue
+      results.push({ toolUseId: b.tool_use_id, ts, isError: !!b.is_error })
+    }
+    return results.length ? { results } : { skip: 'unhandled_type' }
   }
 
   if (o.type === 'user' && typeof o.message?.content === 'string') {
@@ -149,7 +164,8 @@ function drain (folderId, t, initial = false) {
     }
     const state = t.files.get(name)
     for (const line of readFrom(file, state)) {
-      const { events, skip } = parseLine(line, folderId)
+      const { events, skip, results } = parseLine(line, folderId)
+      if (results) { for (const r of results) closeToolCall(folderId, r); continue }
       if (skip) { if (skip === 'bad_json') log('WARN', 'bad_line', { file, first: line.slice(0, 80) }); continue }
       for (const ev of events) {
         const hit = attribute(ev)
@@ -160,7 +176,13 @@ function drain (folderId, t, initial = false) {
         }
         // store tool events with the folder-relative path for the UI
         if (ev.path?.startsWith(t.rootPath)) ev.path = ev.path.slice(t.rootPath.length + 1)
-        bus.emit(ev)
+        const emitted = bus.emit(ev)
+        const tid = ev.detail?.toolUseId
+        if (tid && emitted.id) {
+          inFlight.set(tid, { eventId: emitted.id, folderId, ts: ev.ts })
+          // bounded: a session that never returns must not grow this forever
+          if (inFlight.size > MAX_INFLIGHT) inFlight.delete(inFlight.keys().next().value)
+        }
       }
     }
   }
@@ -196,6 +218,23 @@ export function primeTopics (file) {
   }
   return found
 }
+
+/** Close a running tool call: record its duration and tell the UI it finished. */
+export function closeToolCall (folderId, { toolUseId, ts, isError }) {
+  const start = inFlight.get(toolUseId)
+  if (!start) return null   // started before we began tailing — nothing on screen to close
+  inFlight.delete(toolUseId)
+  const durationMs = Math.max(0, ts - start.ts)
+  const patch = { state: isError ? 'error' : 'done', durationMs }
+  const detail = db ? updateEventDetail(db, start.eventId, patch) : patch
+  bus.patch(start.folderId, start.eventId, { detail })
+  log('INFO', 'tool_closed', {
+    folder_id: start.folderId, event_id: start.eventId, duration_ms: durationMs, state: patch.state
+  })
+  return { eventId: start.eventId, durationMs }
+}
+
+export function _inFlightSize () { return inFlight.size }
 
 export function startTail (folder) {
   const dir = join(ROOT, slugify(folder.path))

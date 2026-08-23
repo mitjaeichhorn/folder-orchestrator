@@ -128,3 +128,15 @@
     @apply font-sans;
     }
 }
+/* Heat column flash: fires on the path just changed and every folder above it.
+   Keyed remount restarts it — a CSS animation will not replay on re-render. */
+@keyframes orch-flash {
+  0%   { background-color: color-mix(in oklab, var(--color-lime-300) 55%, transparent); }
+  35%  { background-color: color-mix(in oklab, var(--color-lime-300) 40%, transparent); }
+  100% { background-color: transparent; }
+}
+.orch-flash { animation: orch-flash 900ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orch-flash { animation: none; }
+}

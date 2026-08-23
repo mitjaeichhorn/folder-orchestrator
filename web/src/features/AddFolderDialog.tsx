@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FolderOpen } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,10 @@ import { t } from '@/i18n'
 const ERRORS: Record<string, string> = {
   DUPLICATE: 'add.errorDuplicate',
   ENOTDIR_OR_MISSING: 'add.errorMissing',
-  PATH_REQUIRED: 'add.errorRequired'
+  PATH_REQUIRED: 'add.errorRequired',
+  UNSUPPORTED_PLATFORM: 'add.errorPickerPlatform',
+  PICKER_UNAVAILABLE: 'add.errorPickerUnavailable',
+  TIMEOUT: 'add.errorPickerTimeout'
 }
 
 export function AddFolderDialog ({ open, onOpenChange, onAdded }: {
@@ -22,6 +26,22 @@ export function AddFolderDialog ({ open, onOpenChange, onAdded }: {
   const [ignore, setIgnore] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [picking, setPicking] = useState(false)
+
+  // The dialog opens on the host, not in the browser — a browser folder picker
+  // returns a handle, never a path, and the watcher needs a path.
+  const browse = async () => {
+    setPicking(true); setError(null)
+    try {
+      const r = await api.pickFolder()
+      if (r.cancelled) return
+      if (r.path) { setPath(r.path); if (!name) setName(r.path.split('/').filter(Boolean).pop() ?? '') }
+    } catch (err: any) {
+      setError(ERRORS[err.code] ?? 'add.errorPickerUnavailable')
+    } finally {
+      setPicking(false)
+    }
+  }
 
   const submit = async () => {
     if (!path.trim()) { setError('add.errorRequired'); return }
@@ -49,9 +69,16 @@ export function AddFolderDialog ({ open, onOpenChange, onAdded }: {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="path">{t('add.path')}</Label>
-            <Input id="path" value={path} placeholder={t('add.pathPlaceholder')}
-              onChange={e => setPath(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+            <div className="flex gap-2">
+              <Input id="path" value={path} placeholder={t('add.pathPlaceholder')}
+                onChange={e => setPath(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+              <Button variant="outline" onClick={browse} disabled={picking} className="shrink-0">
+                <FolderOpen className="size-4" />
+                {picking ? t('add.browsing') : t('add.browse')}
+              </Button>
+            </div>
+            {picking && <p className="text-muted-foreground text-xs">{t('add.browseHint')}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="name">{t('add.name')}</Label>

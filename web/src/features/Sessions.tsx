@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { api, type OrchEvent, type Session } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { ToolLabel } from './ToolLabel'
 import { groupBySession, filesTouched, isRunning, UNATTRIBUTED } from './session-logic'
 
 
@@ -77,7 +78,9 @@ export function Sessions ({ folderId, live, onPickPath }: {
               {rows.map(e => (
                 <tr key={e.id} className="border-b">
                   <td className="text-muted-foreground w-24 px-4 py-1.5 font-mono text-xs tabular-nums">{fmtTime(e.ts)}</td>
-                  <td className="w-28 py-1.5 font-mono text-xs text-violet-400">{e.tool ?? t('kind.prompt')}</td>
+                  <td className="w-px py-1.5 pr-3 whitespace-nowrap">
+                    {e.tool ? <ToolLabel tool={e.tool} /> : <span className="text-muted-foreground font-mono text-xs">{t('kind.prompt')}</span>}
+                  </td>
                   <td className="truncate py-1.5 font-mono text-xs">
                     {e.path ?? e.detail?.input?.command ?? e.detail?.text ?? ''}
                   </td>

@@ -37,3 +37,20 @@ export function gaps (tsNewestFirst: number[]): number[] {
   return tsNewestFirst.map((ts, i) =>
     i + 1 < tsNewestFirst.length ? Math.max(0, ts - tsNewestFirst[i + 1]) : 0)
 }
+
+/**
+ * A tool call is written to the transcript when it STARTS, so a row can be shown
+ * while the work is still happening. `state` closes it when the result lands.
+ */
+export const isRunning = (e: { kind?: string; detail?: any }) =>
+  e?.kind === 'tool' && e?.detail?.state === 'running'
+
+/** How long a running call has been going, live. Capped so a stuck call is bounded. */
+export const RUNNING_CAP_MS = 10 * 60 * 1000
+
+export function runningFor (startTs: number, now: number): number {
+  return Math.min(RUNNING_CAP_MS, Math.max(0, now - startTs))
+}
+
+/** True once a running call has passed the cap — the UI should stop pretending. */
+export const isStalled = (startTs: number, now: number) => now - startTs > RUNNING_CAP_MS

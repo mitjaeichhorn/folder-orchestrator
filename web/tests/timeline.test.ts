@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { gapPx, gaps, fmtGap, isCapped, MAX_GAP_PX, PX_PER_SECOND, CAP_SECONDS } from '../src/features/timeline.ts'
+import { gapPx, gaps, fmtGap, isCapped, isRunning, runningFor, isStalled, MAX_GAP_PX, PX_PER_SECOND, CAP_SECONDS, RUNNING_CAP_MS } from '../src/features/timeline.ts'
 
 test('one second of elapsed time is one unit of dash', () => {
   assert.equal(gapPx(1000), PX_PER_SECOND)
@@ -43,4 +43,25 @@ test('duration labels are compact and unit-suffixed', () => {
   assert.equal(fmtGap(3_600_000), '1h')
   assert.equal(fmtGap(5_400_000), '1h 30m')
   assert.equal(fmtGap(0), '')
+})
+
+// --- in-flight tool calls ------------------------------------------------
+test('a running tool call is identified by its state, not by a missing duration', () => {
+  assert.equal(isRunning({ kind: 'tool', detail: { state: 'running' } }), true)
+  assert.equal(isRunning({ kind: 'tool', detail: { state: 'done', durationMs: 5 } }), false)
+  assert.equal(isRunning({ kind: 'tool', detail: {} }), false, 'no state means an old row, not a live one')
+  assert.equal(isRunning({ kind: 'modified', detail: { state: 'running' } }), false)
+  assert.equal(isRunning(null as any), false)
+})
+
+test('elapsed time grows with the clock and is bounded', () => {
+  assert.equal(runningFor(1000, 4000), 3000)
+  assert.equal(runningFor(1000, 1000), 0)
+  assert.equal(runningFor(1000, 500), 0, 'clock skew must not go negative')
+  assert.equal(runningFor(0, 60 * 60 * 1000), RUNNING_CAP_MS, 'a stuck call is capped')
+})
+
+test('a call past the cap is reported as stalled', () => {
+  assert.equal(isStalled(0, RUNNING_CAP_MS - 1), false)
+  assert.equal(isStalled(0, RUNNING_CAP_MS + 1), true)
 })

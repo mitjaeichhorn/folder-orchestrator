@@ -7,6 +7,7 @@ import { Thumb } from './Thumb'
 import { isImagePath } from '@shared/glob.js'
 import { GLYPH, TONE, rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE } from './authored'
+import { ToolLabel } from './ToolLabel'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -86,7 +87,7 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
                         {fmtTime(e.ts)}
                       </span>
                       <span className={cn('w-4 shrink-0', TONE[e.kind])}>{GLYPH[e.kind]}</span>
-                      {e.tool && <span className="w-20 shrink-0 truncate font-mono text-xs text-violet-400">{e.tool}</span>}
+                      {e.tool && <ToolLabel tool={e.tool} className="shrink-0 whitespace-nowrap" />}
                       <span className={cn('min-w-0 flex-1 truncate text-xs',
                         isAuthored(e) ? AUTHORED_TONE : 'font-mono')} title={rowText(e)}>
                         {fg.path === NO_FILE || e.kind === 'tool' ? rowText(e) : t(`kind.${e.kind}`)}

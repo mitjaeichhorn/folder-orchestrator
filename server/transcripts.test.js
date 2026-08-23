@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { parseLine, slugify, noteFsEvent, attribute, _recent, topicOf, _setTopic, primeTopics } from './transcripts.js'
+import { parseLine, slugify, noteFsEvent, attribute, _recent, topicOf, _setTopic, primeTopics, closeToolCall, _inFlightSize } from './transcripts.js'
 
 const asst = (tool, input, ts = '2026-08-23T10:00:00.000Z', sid = 'S1') => JSON.stringify({
   type: 'assistant', timestamp: ts, sessionId: sid,
@@ -74,6 +74,43 @@ test('multiple tool_use blocks in one record yield multiple events', () => {
     ] }
   })
   assert.equal(parseLine(line, 'F').events.length, 2)
+})
+
+// --- running / finished tool calls ---------------------------------------
+const asstWithId = (tool, id, ts = '2026-08-23T10:00:00.000Z') => JSON.stringify({
+  type: 'assistant', timestamp: ts, sessionId: 'R1',
+  message: { content: [{ type: 'tool_use', id, name: tool, input: { command: 'sleep 5' } }] }
+})
+const toolResult = (id, ts, isError = false) => JSON.stringify({
+  type: 'user', timestamp: ts, sessionId: 'R1',
+  message: { content: [{ type: 'tool_result', tool_use_id: id, is_error: isError }] }
+})
+
+test('a tool call is emitted as running, carrying its id', () => {
+  const e = parseLine(asstWithId('Bash', 'tu_1'), 'F').events[0]
+  assert.equal(e.detail.state, 'running', 'the row can be shown before the work finishes')
+  assert.equal(e.detail.toolUseId, 'tu_1')
+  assert.equal(e.detail.durationMs, undefined)
+})
+
+test('a tool_result record is parsed as a result, not as an event', () => {
+  const r = parseLine(toolResult('tu_1', '2026-08-23T10:00:05.000Z'), 'F')
+  assert.equal(r.events, undefined, 'a result closes a row, it never adds one')
+  assert.deepEqual(r.results, [{ toolUseId: 'tu_1', ts: Date.parse('2026-08-23T10:00:05.000Z'), isError: false }])
+})
+
+test('an error result is distinguishable from a successful one', () => {
+  const r = parseLine(toolResult('tu_2', '2026-08-23T10:00:05.000Z', true), 'F')
+  assert.equal(r.results[0].isError, true)
+})
+
+test('a user record with no tool_result is still skipped silently', () => {
+  const line = JSON.stringify({ type: 'user', timestamp: '2026-08-23T10:00:00.000Z', message: { content: [{ type: 'text', text: 'hi' }] } })
+  assert.equal(parseLine(line, 'F').skip, 'unhandled_type')
+})
+
+test('closing an unknown tool id is a no-op, not a crash', () => {
+  assert.equal(closeToolCall('F', { toolUseId: 'never-seen', ts: Date.now() }), null)
 })
 
 // --- topic ---------------------------------------------------------------

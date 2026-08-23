@@ -57,6 +57,8 @@ export const api = {
   addRule: (r: Partial<Rule>) => req<Rule>('/api/rules', { method: 'POST', body: JSON.stringify(r) }),
   patchRule: (id: string, r: Partial<Rule>) => req<Rule>(`/api/rules/${id}`, { method: 'PATCH', body: JSON.stringify(r) }),
   removeRule: (id: string) => req<void>(`/api/rules/${id}`, { method: 'DELETE' }),
+  pickFolder: () => req<{ path?: string; cancelled?: boolean; error?: string }>(
+    '/api/pick-folder', { method: 'POST', body: '{}' }),
   fileUrl: (folderId: string, path: string) =>
     `${config.apiBase}/api/file?folder=${encodeURIComponent(folderId)}&path=${encodeURIComponent(path)}`,
   reveal: (path: string) => req<{ ok: boolean }>('/api/reveal', { method: 'POST', body: JSON.stringify({ path }) })

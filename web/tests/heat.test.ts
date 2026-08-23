@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
+import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
   assert.deepEqual(ancestors('a/b/c.ts'), ['a', 'a/b', 'a/b/c.ts'])
@@ -85,4 +85,35 @@ test('backfill order matters: the last event in the list is the brightest', () =
   assert.equal(heatOf(s, 'new.ts'), 1)
   assert.ok(heatOf(s, 'mid.ts') < heatOf(s, 'new.ts'))
   assert.ok(heatOf(s, 'old.ts') < heatOf(s, 'mid.ts'))
+})
+
+// --- flash ---------------------------------------------------------------
+test('only the paths touched by the newest event count as just-changed', () => {
+  let s = touch(emptyHeat(), 'src/lib/a.ts')
+  assert.equal(justChanged(s, 'src/lib/a.ts'), true)
+  assert.equal(justChanged(s, 'src/lib'), true, 'ancestors flash too')
+  assert.equal(justChanged(s, 'src'), true)
+  assert.equal(justChanged(s, 'other.ts'), false)
+
+  s = touch(s, 'other.ts')
+  assert.equal(justChanged(s, 'src/lib/a.ts'), false, 'the previous flash is over')
+  assert.equal(justChanged(s, 'other.ts'), true)
+})
+
+test('nothing is just-changed before any event', () => {
+  assert.equal(justChanged(emptyHeat(), 'a.ts'), false)
+})
+
+test('stampOf reports the tick, or null for an untouched path', () => {
+  const s = touch(emptyHeat(), 'a.ts')
+  assert.equal(stampOf(s, 'a.ts'), 1)
+  assert.equal(stampOf(s, 'b.ts'), null)
+})
+
+test('the stamp changes on every touch so a re-touch can restart the flash', () => {
+  let s = touch(emptyHeat(), 'a.ts')
+  const first = stampOf(s, 'a.ts')
+  s = touch(s, 'b.ts')
+  s = touch(s, 'a.ts')
+  assert.notEqual(stampOf(s, 'a.ts'), first, 'a new stamp is what remounts the node')
 })

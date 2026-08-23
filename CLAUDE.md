@@ -67,9 +67,19 @@ Keep it at this file count. New concerns go into an existing file until it genui
   we slice it by character count and never by meaning. Tailing starts at EOF, so `primeTopics`
   reads back over the file to recover the current topic — without it, the topic is null until
   the next prompt and every restart loses it.
+- **A tool call is recorded when it STARTS.** The transcript writes `tool_use` (with an `id`) at
+  the start and `tool_result` (with `tool_use_id`) at the end — so a row can be shown while the
+  work is still running, and closed with a real duration when the result lands. Rows from before
+  this existed have no `detail.state`; `isRunning` requires `state === 'running'` precisely so
+  old rows never animate.
 - **Heat is measured in events-ago, not seconds.** The heatmap dims a branch only when other
   branches change. Nothing decays on a timer, so brightness answers "what is being worked on"
   rather than "how long ago was this".
+- **The folder picker runs on the host, not in the browser.** `showDirectoryPicker` returns a
+  handle, never a path, and the watcher needs a path. `/api/pick-folder` shells out to a *fixed*
+  AppleScript via `execFile` — no shell, no interpolation, nothing the client sends reaches it.
+- **The heat tree refetches only on structural change.** created/deleted/renamed change the
+  shape; modified never does. Debounced, or a build refetches the tree hundreds of times.
 - **`/api/file` is an allow-list.** Only image extensions, only inside the folder, and the
   symlink check realpaths *both* sides — on macOS the folder itself often sits under a symlink
   (`/var` → `/private/var`), and comparing a resolved file to an unresolved root rejects

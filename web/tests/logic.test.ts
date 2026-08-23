@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { matchEvent, globToRe, ALL_KINDS } from '../../shared/glob.js'
 import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED } from '../src/features/session-logic.ts'
 import { isAuthored, AUTHORED_TONE } from '../src/features/authored.ts'
+import { parseTool } from '../src/features/tool-name.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -105,4 +106,38 @@ test('filesystem events are never authored text', () => {
 test('the authored tone is neon green, upright', () => {
   assert.match(AUTHORED_TONE, /lime/, 'neon green')
   assert.doesNotMatch(AUTHORED_TONE, /italic/)
+})
+
+// --- MCP tool names ------------------------------------------------------
+test('an MCP tool splits into server and tool name', () => {
+  assert.deepEqual(parseTool('mcp__playwright__browser_take_screenshot'),
+    { mcp: true, server: 'playwright', name: 'browser_take_screenshot' })
+})
+
+test('a server name containing underscores is not split early', () => {
+  assert.deepEqual(parseTool('mcp__claude_ai_Google_Drive__search_files'),
+    { mcp: true, server: 'claude_ai_Google_Drive', name: 'search_files' })
+})
+
+test('a tool name containing the separator keeps its tail intact', () => {
+  const p = parseTool('mcp__srv__a__b')
+  assert.equal(p!.server, 'srv')
+  assert.equal(p!.name, 'a__b', 'only the first separator splits')
+})
+
+test('a plain tool is not treated as MCP', () => {
+  assert.deepEqual(parseTool('Bash'), { mcp: false, server: null, name: 'Bash' })
+  assert.deepEqual(parseTool('Edit'), { mcp: false, server: null, name: 'Edit' })
+})
+
+test('a malformed MCP name still yields something renderable', () => {
+  assert.equal(parseTool('mcp__')!.name, 'mcp__')
+  assert.equal(parseTool('mcp__lonely')!.name, 'lonely')
+  assert.equal(parseTool('mcp__srv__')!.name, 'srv__')
+})
+
+test('null and empty tools yield null, not a crash', () => {
+  assert.equal(parseTool(null), null)
+  assert.equal(parseTool(undefined), null)
+  assert.equal(parseTool(''), null)
 })

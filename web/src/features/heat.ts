@@ -58,6 +58,17 @@ export function heatOf (state: HeatState, path: string): number {
   return Math.max(MIN_HEAT, 1 - age / HEAT_SPAN)
 }
 
+/** The tick at which a path was last touched, or null if never. */
+export const stampOf = (state: HeatState, path: string): number | null =>
+  state.stamps.get(path) ?? null
+
+/**
+ * True only for the paths touched by the most recent event — the file and every
+ * folder above it. Drives the flash; everything else is unchanged this frame.
+ */
+export const justChanged = (state: HeatState, path: string): boolean =>
+  state.tick > 0 && state.stamps.get(path) === state.tick
+
 /** Keep the map bounded — a long session must not grow it without limit. */
 export function prune (state: HeatState, keep = 4000): HeatState {
   if (state.stamps.size <= keep) return state

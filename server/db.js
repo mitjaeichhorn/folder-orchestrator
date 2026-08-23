@@ -97,6 +97,15 @@ export function relabelEvent (db, id, { actor, sessionId, topic }) {
     .run(actor, sessionId ?? null, topic ?? null, id)
 }
 
+/** Merge fields into an event's detail. Used to close a running tool call. */
+export function updateEventDetail (db, id, patch) {
+  const row = db.prepare('SELECT detail FROM events WHERE id = ?').get(id)
+  if (!row) return null
+  const detail = { ...JSON.parse(row.detail), ...patch }
+  db.prepare('UPDATE events SET detail = ? WHERE id = ?').run(JSON.stringify(detail), id)
+  return detail
+}
+
 export function sessions (db, folderId, limit = 20) {
   return db.prepare(
     `SELECT session_id AS id, MIN(ts) AS startedAt, MAX(ts) AS lastAt, COUNT(*) AS events,

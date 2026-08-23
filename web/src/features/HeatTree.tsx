@@ -1,9 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
-import { emptyHeat, touchAll, heatOf, prune, type HeatState } from './heat'
+import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, type HeatState } from './heat'
 import type { OrchEvent } from '@/lib/api'
 import { t } from '@/i18n'
+import { cn } from '@/lib/utils'
+
+/** Coalesce a burst of structural changes into one refetch. */
+function useDebounced<T> (value: T, ms: number): T {
+  const [v, setV] = useState(value)
+  useEffect(() => {
+    const id = setTimeout(() => setV(value), ms)
+    return () => clearTimeout(id)
+  }, [value, ms])
+  return v
+}
 
 interface Node { n: string; p: string; d: 0 | 1; c?: Node[] }
 interface TreeResponse { nodes: number; truncated: boolean; children: Node[] }
@@ -28,18 +39,25 @@ function Branch ({ node, heat, depth, open, toggle }: {
   const h = heatOf(heat, node.p)
   const isOpen = open.has(node.p)
   const style = { ...heatStyle(h), paddingLeft: depth * 10 + 4 }
+  // The stamp in the key remounts the node on every touch, which is what makes
+  // the CSS animation replay — re-rendering the same element would not.
+  const flash = justChanged(heat, node.p)
+  const flashKey = flash ? stampOf(heat, node.p) : 'idle'
 
   if (node.d === 0) {
     return (
-      <div className="truncate py-px font-mono text-[10px] leading-tight" style={style} title={node.p}>
+      <div key={flashKey}
+        className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight', flash && 'orch-flash')}
+        style={style} title={node.p}>
         {node.n}
       </div>
     )
   }
   return (
     <div>
-      <button onClick={() => toggle(node.p)}
-        className="hover:bg-muted/40 flex w-full items-center gap-0.5 truncate py-px text-left font-mono text-[10px] leading-tight"
+      <button key={flashKey} onClick={() => toggle(node.p)}
+        className={cn('hover:bg-muted/40 flex w-full items-center gap-0.5 truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
+          flash && 'orch-flash')}
         style={style} title={node.p}>
         {isOpen
           ? <ChevronDown className="size-2.5 shrink-0" />
@@ -57,19 +75,35 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
   const [tree, setTree] = useState<TreeResponse | null>(null)
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [error, setError] = useState(false)
+  const firstLoad = useRef(true)
+
+  // A created or deleted file changes the SHAPE of the tree, so the structure
+  // has to be refetched — heat alone cannot show a path that is not there.
+  // Modifications never change the shape, so they must not trigger a refetch.
+  const structureVersion = useMemo(
+    () => events.reduce((n, e) => n + (e.kind === 'created' || e.kind === 'deleted' || e.kind === 'renamed' ? 1 : 0), 0),
+    [events]
+  )
+  const debounced = useDebounced(structureVersion, 1200)
 
   useEffect(() => {
-    setTree(null); setError(false)
+    if (firstLoad.current) { setTree(null); setError(false) }
     fetch(`${config.apiBase}/api/tree?folder=${encodeURIComponent(folderId)}`)
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: TreeResponse) => {
         setTree(data)
-        // top level open by default; everything below closed, so a closed folder
-        // lighting up is the signal that something inside it changed
-        setOpen(new Set(data.children.filter(c => c.d === 1).map(c => c.p)))
+        setError(false)
+        if (firstLoad.current) {
+          // top level open by default; everything below closed, so a closed folder
+          // lighting up is the signal that something inside it changed
+          setOpen(new Set(data.children.filter(c => c.d === 1).map(c => c.p)))
+          firstLoad.current = false
+        }
       })
-      .catch(() => setError(true))
-  }, [folderId])
+      .catch(() => { if (firstLoad.current) setError(true) })
+  }, [folderId, debounced])
+
+  useEffect(() => { firstLoad.current = true }, [folderId])
 
   // Heat is derived from the event list, in order. Recomputed from scratch so it
   // always matches what the feed shows — no separate accumulator to drift.
@@ -87,7 +121,7 @@ export function HeatTree ({ folderId, events }: { folderId: string; events: Orch
   const roots = useMemo(() => tree?.children ?? [], [tree])
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-l">
+    <div data-slot="heat-tree" className="flex h-full min-h-0 flex-col border-l">
       <div className="text-muted-foreground flex items-center gap-2 border-b px-2 py-1.5 text-xs">
         <span className="uppercase">{t('heat.title')}</span>
         {tree && <span className="ml-auto tabular-nums">{t('heat.nodes', { n: tree.nodes })}</span>}

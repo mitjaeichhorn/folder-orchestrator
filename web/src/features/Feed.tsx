@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { matchEvent, ALL_KINDS, isImagePath } from '@shared/glob.js'
 import { GLYPH, TONE, rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE } from './authored'
-import { gaps, gapPx, fmtGap, isCapped } from './timeline'
+import { gaps, gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { Lightbox } from './Lightbox'
+import { ToolLabel } from './ToolLabel'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime } from '@/i18n'
@@ -53,6 +54,15 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
   )
 
   const rowGaps = useMemo(() => gaps(rows.map(e => e.ts)), [rows])
+
+  // Tick only while a call is in flight — an idle feed must not re-render every second.
+  const anyRunning = useMemo(() => rows.some(isRunning), [rows])
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!anyRunning) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [anyRunning])
 
   const lastCount = useRef(rows.length)
   useEffect(() => {
@@ -123,6 +133,16 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
                     className={cn('hover:bg-muted/50 cursor-pointer',
                       selected?.id === e.id && 'bg-muted')}>
                     <td className="w-24 px-3 py-1 align-top">
+                      {isRunning(e) && (
+                        <div className="mb-0.5 ml-1 flex" style={{ height: gapPx(runningFor(e.ts, now)) }}>
+                          <div className={cn('h-full border-l border-dashed',
+                            isStalled(e.ts, now) ? 'border-amber-500/50' : 'border-lime-400/60 animate-pulse')} />
+                          <span className={cn('self-end pb-0.5 pl-1.5 text-[10px] tabular-nums',
+                            isStalled(e.ts, now) ? 'text-amber-500/70' : 'text-lime-400/80')}>
+                            {fmtGap(runningFor(e.ts, now)) || '0s'}
+                          </span>
+                        </div>
+                      )}
                       <div className="text-muted-foreground font-mono text-xs tabular-nums">{fmtTime(e.ts)}</div>
                       {/* elapsed time made visible: the dash spans the gap to the
                           older event below, so a burst reads dense and a pause reads long */}
@@ -139,11 +159,14 @@ export function Feed ({ events, evicted, selected, onSelect, folderId }: {
                       )}
                     </td>
                     <td className={cn('w-6 py-1 align-top', TONE[e.kind])}>{GLYPH[e.kind]}</td>
-                    <td className="w-20 py-1 align-top">
-                      {e.tool && <span className="text-violet-400 font-mono text-xs">{e.tool}</span>}
-                    </td>
                     <td className="max-w-0 py-1 pr-2 align-top">
                       <div className="flex min-w-0 items-center gap-2" title={rowText(e)}>
+                        <ToolLabel tool={e.tool} className="shrink-0" />
+                        {typeof e.detail?.durationMs === 'number' && e.detail.durationMs >= 1000 && (
+                          <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
+                            {fmtGap(e.detail.durationMs)}
+                          </span>
+                        )}
                         {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
                           <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
                         )}

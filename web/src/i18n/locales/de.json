@@ -58,5 +58,7 @@
   "detail.copyFile": "Dateipfad kopieren",
   "detail.copyFolder": "Ordnerpfad kopieren",
   "detail.copiedFile": "Dateipfad kopiert",
-  "detail.copiedFolder": "Ordnerpfad kopiert"
+  "detail.copiedFolder": "Ordnerpfad kopiert",
+  "add.browse": "Durchsuchen…",
+  "add.browsing": "Wird gewählt…"
 }
