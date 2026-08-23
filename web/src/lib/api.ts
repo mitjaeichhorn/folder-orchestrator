@@ -8,11 +8,16 @@ export interface OrchEvent {
   ts: number
   kind: EventKind
   path: string | null
-  actor: 'claude' | 'external' | 'unknown'
+  actor: 'claude' | 'during-claude' | 'external' | 'unknown'
   sessionId: string | null
   tool: string | null
   /** The operator's prompt, verbatim — see the event contract. */
   topic: string | null
+  /**
+   * events.id of the tool call whose measured interval contained this event.
+   * Co-occurrence, not authorship — see invariant 6 of the event contract.
+   */
+  duringToolEventId?: number | null
   detail: Record<string, any>
 }
 

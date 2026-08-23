@@ -33,6 +33,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   const [heatOpen, setHeatOpen] = useState(true)
   // files a still-running tool call named — pulsed in both the feed and the tree
   const running = useMemo(() => runningPaths(events), [events])
+  // hovering a feed row reveals that file in the heat tree — same route as `running`
+  const [hoverPath, setHoverPath] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
@@ -94,7 +96,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
 
         <TabsContent value="activity" className="min-h-0 flex-1 overflow-hidden">
           <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
-            folderId={folder.id} filtersOpen={filtersOpen} running={running} />
+            folderId={folder.id} filtersOpen={filtersOpen} running={running}
+            onLocate={setHoverPath} locatable={heatOpen} />
         </TabsContent>
 
         <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">
@@ -114,7 +117,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           <>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="24" minSize="12" maxSize="50" className="min-h-0 overflow-hidden">
-              <HeatTree folderId={folder.id} events={events} running={running} />
+              <HeatTree folderId={folder.id} events={events} running={running} hoverPath={hoverPath} />
             </ResizablePanel>
           </>
         )}

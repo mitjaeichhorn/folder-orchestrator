@@ -1,9 +1,24 @@
 import type { OrchEvent } from '@/lib/api'
 
-export interface Burst { count: number; dir: string; paths: string[] }
+export interface Burst {
+  count: number
+  dir: string
+  paths: string[]
+  /** The call every member shares, or null when they disagree — see collapseBursts. */
+  call: string | null
+}
 export type CollapsedEvent = OrchEvent & { repeat?: number; burst?: Burst }
+export type NestedEvent = CollapsedEvent & { children?: CollapsedEvent[] }
 
 export const COLLAPSE_WINDOW = 2000
+
+/** Identity of a tool row, as referenced by a filesystem row's parent pointer. */
+export const callKeyOf = (e: OrchEvent): string | null =>
+  e.kind === 'tool' && e.id != null ? String(e.id) : null
+
+/** Which call a filesystem row happened inside, or null if none/ambiguous. */
+export const parentCallOf = (e: OrchEvent): string | null =>
+  e.duringToolEventId != null ? String(e.duringToolEventId) : null
 
 /**
  * A tool that writes a file then formats it produces two real events milliseconds
@@ -26,6 +41,9 @@ export function collapseRepeats (rows: OrchEvent[], windowMs = COLLAPSE_WINDOW):
     if (
       prev && collapsible &&
       prev.path === e.path && prev.kind === e.kind && prev.actor === e.actor &&
+      // two identical adjacent changes from DIFFERENT calls are two pieces of
+      // work; merging them would attribute both to whichever survived
+      parentCallOf(prev) === parentCallOf(e) &&
       Math.abs(prev.ts - e.ts) <= windowMs
     ) {
       prev.repeat = (prev.repeat ?? 1) + 1
@@ -86,12 +104,18 @@ export function collapseBursts (
 
     if (members.length >= minCount) {
       for (const m of members) used.add(m)
+      // A burst stands for several events that may belong to different calls.
+      // Nesting it on the strength of its newest member alone would drag the
+      // others under a call that did not produce them, so a burst only carries a
+      // call when every member agrees on one.
+      const calls = new Set(members.map(m => parentCallOf(rows[m])))
       out.push({
         ...e,
         burst: {
           count: members.reduce((n, m) => n + (rows[m].repeat ?? 1), 0),
           dir: dirOf(e.path as string),
-          paths: members.map(m => rows[m].path as string)
+          paths: members.map(m => rows[m].path as string),
+          call: calls.size === 1 ? [...calls][0] : null
         }
       })
     } else {
@@ -100,3 +124,52 @@ export function collapseBursts (
   }
   return out
 }
+
+/**
+ * Nest filesystem rows under the tool call whose measured interval contained them.
+ *
+ * Runs LAST, after both collapse passes: `collapseRepeats` needs adjacency and
+ * `collapseBursts` needs a flat time-ordered window, so neither can be handed a
+ * nested array. Running this first would also stop bursts forming across calls.
+ *
+ * A row is adopted only if its parent is present in this same array. That
+ * condition is what keeps orphans visible — a change whose call was filtered out,
+ * evicted, or falls outside the loaded window stays a top-level row rather than
+ * disappearing.
+ *
+ * Ordering matters and is load-bearing: a tool call is written when it STARTS, so
+ * its files have LARGER timestamps and sit ABOVE it in the newest-first list.
+ * Nesting therefore only ever pulls rows downward, and never reorders what
+ * remains — so the top-level array stays sorted newest-first and `gaps()` keeps
+ * working unchanged. Do NOT hoist a call row to its newest child: that would put a
+ * row at a `ts` greater than its neighbour above, `gaps()` would clamp the
+ * negative delta to zero, and elapsed time would be silently destroyed.
+ *
+ * Depth is exactly 1 — a tool row is never adopted, so there is no recursion.
+ */
+export function nestByCall (rows: CollapsedEvent[]): NestedEvent[] {
+  const parents = new Map<string, NestedEvent>()
+  for (const e of rows) {
+    const key = callKeyOf(e)
+    if (key) parents.set(key, e as NestedEvent)
+  }
+  if (parents.size === 0) return rows as NestedEvent[]
+
+  const out: NestedEvent[] = []
+  for (const e of rows) {
+    // a burst carries its own shared call; a plain row carries its own pointer
+    const key = e.burst ? e.burst.call : parentCallOf(e)
+    const adoptable = key != null && e.kind !== 'tool' && e.kind !== 'prompt' && e.kind !== 'alert'
+    const parent = adoptable ? parents.get(key as string) : undefined
+    if (parent && parent !== e) {
+      ;(parent.children ??= []).push(e)
+      continue
+    }
+    out.push(e)
+  }
+  return out
+}
+
+/** Rows the operator can actually see: top level plus every child. */
+export const visibleCount = (rows: NestedEvent[]): number =>
+  rows.reduce((n, r) => n + 1 + (r.children?.length ?? 0), 0)

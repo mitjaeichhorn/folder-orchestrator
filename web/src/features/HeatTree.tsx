@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
 import { emptyHeat, touchAll, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
+import { chainOf, revealPredicate, isOpenWith } from './locate'
 import { heatColor, heatOpacity } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
@@ -28,16 +29,22 @@ const countNodes = (nodes: Node[]): number =>
 
 const heatStyle = (h: number) => ({ opacity: heatOpacity(h), color: heatColor(h) })
 
-function Branch ({ node, heat, depth, closed, toggle, running }: {
+const EMPTY_CHAIN: ReadonlySet<string> = new Set<string>()
+
+function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
   node: Node
   heat: HeatState
   depth: number
   closed: Set<string>
   toggle: (p: string) => void
   running?: Set<string>
+  chain?: ReadonlySet<string>
 }) {
   const h = heatOf(heat, node.p)
-  const isOpen = !closed.has(node.p)
+  const isOpen = isOpenWith(closed, chain ?? EMPTY_CHAIN, node.p)
+  const onChain = chain?.has(node.p) ?? false
+  // last element of the chain is the file itself
+  const isTarget = onChain && node.d === 0
   const style = { ...heatStyle(h), paddingLeft: depth * 10 + 4 }
   // The stamp in the key remounts the node on every touch, which is what makes
   // the CSS animation replay — re-rendering the same element would not.
@@ -52,7 +59,8 @@ function Branch ({ node, heat, depth, closed, toggle, running }: {
     return (
       <div key={flashKey}
         className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight',
-          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse')}
+          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
+          onChain && 'bg-primary/10', isTarget && 'bg-primary/25 ring-primary/50 ring-1')}
         style={style} title={node.p}>
         {node.n}
       </div>
@@ -62,7 +70,8 @@ function Branch ({ node, heat, depth, closed, toggle, running }: {
     <div>
       <button key={flashKey} onClick={() => toggle(node.p)}
         className={cn('hover:bg-muted/40 flex w-full items-center gap-0.5 truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
-          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse')}
+          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
+          onChain && 'bg-primary/10')}
         style={style} title={node.p}>
         {isOpen
           ? <ChevronDown className="size-2.5 shrink-0" />
@@ -70,16 +79,17 @@ function Branch ({ node, heat, depth, closed, toggle, running }: {
         <span className="truncate">{node.n}</span>
       </button>
       {isOpen && node.c?.map(c => (
-        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle} running={running} />
+        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle} running={running} chain={chain} />
       ))}
     </div>
   )
 }
 
-export function HeatTree ({ folderId, events, running }: {
+export function HeatTree ({ folderId, events, running, hoverPath }: {
   folderId: string
   events: OrchEvent[]
   running?: Set<string>
+  hoverPath?: string | null
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null)
   const [closed, setClosed] = useState<Set<string>>(new Set())
@@ -124,13 +134,16 @@ export function HeatTree ({ folderId, events, running }: {
   })
 
   const isActive = (p: string) => hasHeat(heat, p)
+  // Derived, never stored: `closed` and `activeOnly` are untouched, so leaving the
+  // row restores the tree exactly by simply dropping this override.
+  const chain = useMemo(() => chainOf(hoverPath), [hoverPath])
 
   const roots = useMemo(() => {
     const all = tree?.children ?? []
-    return activeOnly ? pruneToActive(all as never, isActive) : all
+    return activeOnly ? pruneToActive(all as never, revealPredicate(isActive, chain)) : all
     // keyed on heat.tick rather than heat: pruning a large tree on every render
     // is the one thing here that could get expensive
-  }, [tree, activeOnly, heat.tick])
+  }, [tree, activeOnly, heat.tick, chain])
 
   /** Collapse every folder that has not been touched; leave the active ones open. */
   const collapseInactive = () => {
@@ -140,7 +153,7 @@ export function HeatTree ({ folderId, events, running }: {
   }
 
   return (
-    <div data-slot="heat-tree" className="flex h-full min-h-0 flex-col border-l">
+    <div data-slot="heat-tree" data-hover={hoverPath ?? ''} className="flex h-full min-h-0 flex-col border-l">
       <div className="text-muted-foreground flex shrink-0 items-center gap-2 border-b px-2 py-1.5 text-xs">
         <span className="uppercase">{t('heat.title')}</span>
         <button onClick={collapseInactive} title={t('heat.collapseInactive')}
@@ -166,7 +179,7 @@ export function HeatTree ({ folderId, events, running }: {
             : (
               <>
                 {roots.map(n => (
-                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle} running={running} />
+                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle} running={running} chain={chain} />
                 ))}
                 {activeOnly && roots.length === 0 && (
                   <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>

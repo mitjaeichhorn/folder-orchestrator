@@ -5,7 +5,8 @@ import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED }
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from '../src/features/authored.ts'
 import { parseTool } from '../src/features/tool-name.ts'
 import { fmtTokens } from '../src/features/usage-format.ts'
-import { collapseRepeats, collapseBursts } from '../src/features/collapse.ts'
+import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from '../src/features/collapse.ts'
+import { gaps } from '../src/features/timeline.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -317,4 +318,98 @@ test('a tool description and a prompt use different tones', () => {
   assert.notEqual(TOOL_DESC_TONE, AUTHORED_TONE)
   assert.match(TOOL_DESC_TONE, /zinc/, 'light grey')
   assert.match(AUTHORED_TONE, /lime/, 'neon green')
+})
+
+// --- nesting under the containing call -----------------------------------
+const call = (id: number, ts: number) => ev({ id, kind: 'tool', tool: 'Bash', path: null, ts, actor: 'claude' })
+const during = (id: number, ts: number, parent: number | null, path = 'a.ts') =>
+  ev({ id, kind: 'modified', path, ts, actor: parent == null ? 'external' : 'during-claude', duringToolEventId: parent })
+
+test('a change nests under the call that contained it', () => {
+  const out = nestByCall([during(2, 2000, 1), call(1, 1000)] as any)
+  assert.equal(out.length, 1, 'the child leaves the top level')
+  assert.equal(out[0].id, 1)
+  assert.equal(out[0].children!.length, 1)
+  assert.equal(out[0].children![0].id, 2)
+})
+
+test('an unattributed change stays a top-level row', () => {
+  const out = nestByCall([during(2, 2000, null), call(1, 1000)] as any)
+  assert.equal(out.length, 2)
+})
+
+test('a change whose call is not in view stays visible rather than vanishing', () => {
+  // the call was filtered out, evicted, or falls outside the loaded window
+  const out = nestByCall([during(2, 2000, 999)] as any)
+  assert.equal(out.length, 1)
+  assert.equal(out[0].id, 2)
+})
+
+test('a tool row is never adopted — depth never exceeds 1', () => {
+  const a = call(1, 1000); const b = call(2, 2000)
+  ;(b as any).duringToolEventId = 1
+  const out = nestByCall([b, a] as any)
+  assert.equal(out.length, 2)
+  assert.ok(out.every(r => !r.children), 'no nesting between calls')
+})
+
+test('the top level stays newest-first, so gap dashes keep working', () => {
+  const rows = [during(4, 4000, 1), during(3, 3000, 1), call(1, 1000), during(2, 900, null)] as any
+  const out = nestByCall(rows)
+  const ts = out.map(r => r.ts)
+  assert.deepEqual(ts, [...ts].sort((x, y) => y - x), 'still descending')
+  // gaps() clamps negatives to 0; a hoisted parent would silently destroy elapsed time
+  const g = gaps(ts)
+  assert.ok(g.slice(0, -1).every(v => v > 0), 'no zero-clamped gap')
+})
+
+test('total elapsed span is conserved by nesting', () => {
+  const rows = [during(4, 9000, 1), during(3, 8000, 1), call(1, 1000)] as any
+  const out = nestByCall(rows)
+  const ts = out.map(r => r.ts)
+  const sum = gaps(ts).reduce((a, b) => a + b, 0)
+  assert.equal(sum, ts[0] - ts[ts.length - 1])
+})
+
+test('children keep newest-first order within a call', () => {
+  const out = nestByCall([during(4, 4000, 1), during(3, 3000, 1), call(1, 1000)] as any)
+  assert.deepEqual(out[0].children!.map(c => c.id), [4, 3])
+})
+
+test('a burst whose members share one call nests; one spanning two does not', () => {
+  const shared = { count: 3, dir: 'src', paths: ['src/a', 'src/b', 'src/c'], call: '1' }
+  const split = { count: 3, dir: 'src', paths: ['src/a', 'src/b', 'src/c'], call: null }
+  assert.equal(nestByCall([{ ...during(2, 2000, 1), burst: shared }, call(1, 1000)] as any).length, 1)
+  assert.equal(nestByCall([{ ...during(2, 2000, 1), burst: split }, call(1, 1000)] as any).length, 2)
+})
+
+test('collapseRepeats does not merge identical changes from different calls', () => {
+  const out = collapseRepeats([during(3, 2000, 7), during(2, 1900, 8)] as any)
+  assert.equal(out.length, 2, 'same path and kind, but two different calls')
+})
+
+test('the worst measured case — 11 files under one call', () => {
+  const kids = Array.from({ length: 11 }, (_, i) => during(100 + i, 5000 - i * 10, 1, `f${i}.ts`))
+  const out = nestByCall([...kids, call(1, 1000)] as any)
+  assert.equal(out.length, 1)
+  assert.equal(out[0].children!.length, 11)
+})
+
+test('no event disappears through all three passes', () => {
+  const input: any[] = []
+  for (let i = 0; i < 40; i++) {
+    input.push(during(100 + i, 9000 - i * 40, i % 3 === 0 ? 1 : null, `f${i % 6}.ts`))
+  }
+  input.push(call(1, 1000))
+  const out = nestByCall(collapseBursts(collapseRepeats(input)))
+  const total = out.reduce((n, r) =>
+    n + (r.burst?.count ?? r.repeat ?? 1) +
+    (r.children ?? []).reduce((m, c) => m + (c.burst?.count ?? c.repeat ?? 1), 0), 0)
+  assert.equal(total, input.length)
+})
+
+test('visibleCount counts children, which the new-events pill depends on', () => {
+  const out = nestByCall([during(3, 3000, 1), during(2, 2000, 1), call(1, 1000)] as any)
+  assert.equal(out.length, 1, 'top level shrank')
+  assert.equal(visibleCount(out), 3, 'but three events are on screen')
 })

@@ -1,22 +1,17 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { matchEvent, ALL_KINDS, isImagePath } from '@shared/glob.js'
-import { rowText } from './event-view'
-import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
-import { gaps, gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
-import { FilePath } from './FilePath'
-import { Thumb } from './Thumb'
+import { matchEvent, ALL_KINDS } from '@shared/glob.js'
+import { gaps, gapPx, isRunning, runningFor, isStalled } from './timeline'
 import { Lightbox } from './Lightbox'
-import { ToolLabel } from './ToolLabel'
-import { collapseRepeats, collapseBursts } from './collapse'
+import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './collapse'
+import { FeedRow } from './FeedRow'
 import { KindGlyph } from './KindGlyph'
 import { Tree } from './Tree'
 import type { OrchEvent } from '@/lib/api'
-import { t, fmtTime } from '@/i18n'
+import { t } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 const WINDOWS = [
@@ -27,7 +22,9 @@ const WINDOWS = [
 ]
 
 
-export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOpen = true, running }: {
+export function Feed ({
+  events, evicted, selected, onSelect, folderId, filtersOpen = true, running, onLocate, locatable
+}: {
   events: OrchEvent[]
   evicted: number
   selected: OrchEvent | null
@@ -35,6 +32,8 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
   folderId: string
   filtersOpen?: boolean
   running?: Set<string>
+  onLocate?: (path: string | null) => void
+  locatable?: boolean
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
@@ -42,6 +41,13 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
   const [view, setView] = useState<'timeline' | 'tree'>('timeline')
   const [zoom, setZoom] = useState<string | null>(null)
   const [pinned, setPinned] = useState(true)
+  // track what is COLLAPSED, mirroring HeatTree: a call arriving later is open
+  const [collapsedCalls, setCollapsedCalls] = useState<Set<string>>(new Set())
+  const toggleCall = (id: string) => setCollapsedCalls(s => {
+    const n = new Set(s)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
   const [unseen, setUnseen] = useState(0)
   const viewport = useRef<HTMLDivElement>(null)
 
@@ -52,10 +58,12 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
   }), [kinds, pathGlob, windowMs])
 
   // the ONE predicate — same module the server uses
-  const rows = useMemo(
+  const flatRows = useMemo(
     () => collapseBursts(collapseRepeats(events.filter(e => matchEvent(e, filter)).slice().reverse())),
     [events, filter]
   )
+  // nesting runs LAST: both collapse passes need a flat, time-ordered array
+  const rows = useMemo(() => nestByCall(flatRows), [flatRows])
 
   const rowGaps = useMemo(() => gaps(rows.map(e => e.ts)), [rows])
 
@@ -68,14 +76,18 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
     return () => clearInterval(id)
   }, [anyRunning])
 
-  const lastCount = useRef(rows.length)
+  // Count what is on SCREEN, not top-level rows. Adopting a file into a call
+  // shrinks the top level, so a genuinely new event could otherwise produce
+  // grew <= 0 and the pill would silently miss it.
+  const seenNow = useMemo(() => visibleCount(rows), [rows])
+  const lastCount = useRef(seenNow)
   useEffect(() => {
-    const grew = rows.length - lastCount.current
-    lastCount.current = rows.length
+    const grew = seenNow - lastCount.current
+    lastCount.current = seenNow
     if (grew <= 0) return
     if (pinned) viewport.current?.scrollTo({ top: 0 })
     else setUnseen(n => n + grew)
-  }, [rows.length, pinned])
+  }, [seenNow, pinned])
 
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const atTop = e.currentTarget.scrollTop <= 4
@@ -128,7 +140,9 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
 
       <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto pt-1">
         {view === 'tree'
-          ? <Tree events={rows} selected={selected} onSelect={onSelect} folderId={folderId} onZoom={setZoom} />
+          // flatRows, not rows: the topic tree groups every event itself, and
+          // handing it the nested array would hide every adopted child
+          ? <Tree events={flatRows} selected={selected} onSelect={onSelect} folderId={folderId} onZoom={setZoom} />
           : rows.length === 0
             ? <p className="text-muted-foreground p-8 text-center text-sm">
                 {events.length === 0 ? t('feed.empty') : t('feed.emptyFiltered')}
@@ -144,7 +158,9 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                 <col className="w-6" />
                 <col />
                 <col className="w-16" />
-                <col className="w-16" />
+                {/* table-fixed takes widths from here, not from the <td> — widening
+                    the cell alone leaves it at the colgroup's width */}
+                <col className="w-24" />
               </colgroup>
               <tbody>
                 {rows.map((e, i) => (
@@ -171,86 +187,20 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
                       </td>
                     </tr>
                   )}
-                  <tr
-                    onClick={() => onSelect(e)}
-                    className={cn('hover:bg-muted/50 cursor-pointer',
-                      selected?.id === e.id && 'bg-muted')}>
-                    <td className="w-24 px-3 py-1 align-top">
-                      <div className="text-muted-foreground font-mono text-xs tabular-nums">{fmtTime(e.ts)}</div>
-                      {/* elapsed time made visible: the dash spans the gap to the
-                          older event below, so a burst reads dense and a pause reads long */}
-                      {rowGaps[i] > 0 && (
-                        <div className="relative ml-1 flex" style={{ height: gapPx(rowGaps[i]) }}>
-                          {/* 25% on a dark ground was invisible, so the duration label
-                              floated with nothing to explain it */}
-                          <div className="border-muted-foreground/60 h-full border-l border-dashed" />
-                          {(gapPx(rowGaps[i]) >= 14 || isCapped(rowGaps[i])) && (
-                            <span className={cn('text-muted-foreground/70 self-center pl-1.5 text-[10px] tabular-nums',
-                              isCapped(rowGaps[i]) && 'text-amber-500/60')}>
-                              {isCapped(rowGaps[i]) ? `↕ ${fmtGap(rowGaps[i])}` : fmtGap(rowGaps[i])}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="w-6 py-1 align-top">
-                      <KindGlyph kind={e.kind} pulse={isRunning(e)} />
-                    </td>
-                    <td className="max-w-0 py-1 pr-2 align-top">
-                      <div className="flex min-w-0 items-center gap-2"
-                        title={e.burst ? e.burst.paths.join('\n') : rowText(e)}>
-                        <ToolLabel tool={e.tool} className="shrink-0" />
-                        {/* A running call shows its elapsed time in the same slot a
-                            finished one shows its duration, so what is being worked
-                            on and how long it has taken read as one line. */}
-                        {isRunning(e)
-                          ? <span className={cn('shrink-0 font-mono text-[10px] tabular-nums',
-                              isStalled(e.ts, now) ? 'text-amber-500/80' : 'text-lime-400 orch-pulse')}>
-                              {fmtGap(runningFor(e.ts, now)) || '0s'}
-                            </span>
-                          : typeof e.detail?.durationMs === 'number' && e.detail.durationMs >= 1000 && (
-                            <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
-                              {fmtGap(e.detail.durationMs)}
-                            </span>
-                          )}
-                        {e.path && isImagePath(e.path) && e.kind !== 'deleted' && (
-                          <Thumb folderId={folderId} path={e.path} onOpen={setZoom} />
-                        )}
-                        {/* a burst already names its count in the label */}
-                        {!e.burst && e.repeat && e.repeat > 1 && (
-                          <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 font-mono text-[10px] tabular-nums">
-                            {t('feed.repeat', { n: e.repeat })}
-                          </span>
-                        )}
-                        <span className={cn('truncate text-xs',
-                          isAuthored(e)
-                            ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
-                            : 'font-mono',
-                          e.path && running?.has(e.path) && 'orch-pulse-soft')}>
-                          {e.burst
-                            ? <span className="text-muted-foreground/60">
-                                {e.burst.dir ? `${e.burst.dir}/` : ''}
-                                <span className="text-foreground">{t('feed.burstFiles', { n: e.burst.count })}</span>
-                              </span>
-                            : e.path
-                              // a tool row that names a file is still a path, and
-                              // its folders should be muted like any other
-                              ? <FilePath path={rowText(e)} />
-                              : rowText(e)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="w-16 py-1 pr-2 text-right align-top">
-                      {e.actor === 'claude' && (
-                        <Badge variant="secondary" className="text-violet-300">{t('actor.claude')}</Badge>
-                      )}
-                    </td>
-                    <td className="text-muted-foreground w-16 py-1 pr-3 text-right align-top font-mono text-xs tabular-nums">
-                      {typeof e.detail?.linesAdded === 'number' && (
-                        <span className="text-emerald-400">{t('detail.linesAdded', { n: e.detail.linesAdded })}</span>
-                      )}
-                    </td>
-                  </tr>
+                  <FeedRow
+                    e={e} gap={rowGaps[i]} now={now} depth={0}
+                    folderId={folderId} selected={selected} onSelect={onSelect}
+                    running={running} onZoom={setZoom}
+                    onLocate={onLocate} locatable={locatable}
+                    expanded={!collapsedCalls.has(String(e.id))}
+                    onToggle={() => toggleCall(String(e.id))} />
+                  {!collapsedCalls.has(String(e.id)) && e.children?.map(c => (
+                    <FeedRow key={c.id ?? `${c.ts}-${c.path}`}
+                      e={c} gap={0} now={now} depth={1}
+                      folderId={folderId} selected={selected} onSelect={onSelect}
+                      running={running} onZoom={setZoom}
+                      onLocate={onLocate} locatable={locatable} />
+                  ))}
                   </Fragment>
                 ))}
               </tbody>

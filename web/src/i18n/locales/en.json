@@ -164,5 +164,10 @@
   "remove.purge": "Also delete its recorded history",
   "remove.cancel": "Cancel",
   "remove.confirm": "Stop watching",
-  "feed.nowMarker": "now"
+  "feed.nowMarker": "now",
+  "actor.during-claude": "during",
+  "feed.locate": "Show in project tree",
+  "feed.callFiles": "{n} files",
+  "feed.expandCall": "Show files from this call",
+  "feed.collapseCall": "Hide files from this call"
 }

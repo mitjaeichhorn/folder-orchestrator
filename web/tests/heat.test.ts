@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT } from '../src/features/heat.ts'
 import { pruneToActive, activeFolders, shouldPulse } from '../src/features/prune-tree.ts'
 import { heatColor, heatOpacity } from '../src/features/heat-color.ts'
+import { chainOf, revealPredicate, isOpenWith } from '../src/features/locate.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
   assert.deepEqual(ancestors('a/b/c.ts'), ['a', 'a/b', 'a/b/c.ts'])
@@ -235,4 +236,61 @@ test('an ancestor of an edited file does not pulse', () => {
 test('nothing pulses when nothing is running', () => {
   assert.equal(shouldPulse({ p: 'a.ts', d: 0 }, undefined), false)
   assert.equal(shouldPulse({ p: 'a.ts', d: 0 }, new Set()), false)
+})
+
+// --- hover-to-locate -----------------------------------------------------
+test('the chain is the file and every folder above it', () => {
+  assert.deepEqual([...chainOf('a/b/c.ts')], ancestors('a/b/c.ts'))
+})
+
+test('no hover yields an empty, referentially stable chain', () => {
+  assert.equal(chainOf(null).size, 0)
+  assert.equal(chainOf(null), chainOf(undefined), 'same object, so no needless re-render')
+})
+
+test('an empty chain leaves Active only behaving exactly as before', () => {
+  const isActive = (p: string) => p.startsWith('hot')
+  const widened = revealPredicate(isActive, chainOf(null))
+  for (const p of ['hot/a.ts', 'cold/b.ts', 'hot', 'cold']) {
+    assert.equal(widened(p), isActive(p), p)
+  }
+})
+
+test('hovering reveals a completely cold branch, and only that branch', () => {
+  const s = touch(emptyHeat(), 'hot/x.ts')
+  const isActive = (p: string) => hasHeat(s, p)
+  const kept = pruneToActive(TREE, revealPredicate(isActive, chainOf('src/lib/a.ts')))
+  const paths: string[] = []
+  const walk = (ns: any[]) => ns.forEach((n: any) => { paths.push(n.p); if (n.c) walk(n.c) })
+  walk(kept)
+  assert.ok(paths.includes('src/lib/a.ts'), 'the hovered file is revealed')
+  assert.ok(paths.includes('src') && paths.includes('src/lib'), 'and the route to it')
+  assert.ok(!paths.includes('src/cold.ts'), 'but not its untouched sibling')
+  assert.ok(!paths.includes('docs'), 'nor an unrelated cold branch')
+})
+
+test('a collapsed folder on the chain renders open, others stay closed', () => {
+  const closed = new Set(['src', 'docs'])
+  const chain = chainOf('src/lib/a.ts')
+  assert.equal(isOpenWith(closed, chain, 'src'), true, 'on the chain — opened')
+  assert.equal(isOpenWith(closed, chain, 'docs'), false, 'off the chain — untouched')
+  assert.equal(isOpenWith(closed, chainOf(null), 'src'), false, 'no hover — still closed')
+})
+
+test('the override never mutates the collapse state, so restore cannot be missed', () => {
+  const closed = new Set(['src'])
+  const before = new Set(closed)
+  const chain = chainOf('src/lib/a.ts')
+  isOpenWith(closed, chain, 'src')
+  pruneToActive(TREE, revealPredicate(() => false, chain))
+  assert.equal(closed.size, before.size)
+  assert.deepEqual([...closed], [...before], 'same contents, same Set')
+})
+
+test('both overrides compose: collapsed AND filtered out is still revealed', () => {
+  const closed = new Set(['src', 'src/lib'])
+  const chain = chainOf('src/lib/a.ts')
+  const kept = pruneToActive(TREE, revealPredicate(() => false, chain))
+  assert.equal(kept.length, 1, 'nothing is active, yet the chain survives')
+  assert.equal(isOpenWith(closed, chain, 'src/lib'), true)
 })
