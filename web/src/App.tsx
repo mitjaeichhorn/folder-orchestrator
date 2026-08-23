@@ -26,7 +26,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   const { events, status, conn, attempt, evicted, alerts, clearAlerts } = useStream()
   const [selected, setSelected] = useState<OrchEvent | null>(null)
   const [heatOpen, setHeatOpen] = useState(true)
-  const [filtersOpen, setFiltersOpen] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
     if (alerts.length === 0) return
