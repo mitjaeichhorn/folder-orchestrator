@@ -135,6 +135,17 @@ export function Feed ({ events, evicted, selected, onSelect, folderId, filtersOp
               </p>
             : (
             <table className="w-full table-fixed text-sm">
+              {/* table-fixed takes its widths from the first row, and the first
+                  row is a colSpan={5} running indicator whenever a call is in
+                  flight — which collapsed the layout into five equal columns.
+                  A colgroup pins the widths regardless of what the first row is. */}
+              <colgroup>
+                <col className="w-24" />
+                <col className="w-6" />
+                <col />
+                <col className="w-16" />
+                <col className="w-16" />
+              </colgroup>
               <tbody>
                 {rows.map((e, i) => (
                   <Fragment key={e.id ?? `${e.ts}-${e.path}`}>

@@ -166,6 +166,11 @@ are noise — ignore unknown types silently, the format changes without notice.
 - **index.html must not be cached.** It names the content-hashed bundle, so a cached copy
   silently serves the previous build — changes appear to have no effect and you debug code that
   is not running. Served `no-cache, must-revalidate`; hashed assets are `immutable`.
+- **`table-fixed` takes its widths from the FIRST row.** The feed's first row is a
+  `colSpan={5}` running indicator whenever a call is in flight, so the browser could not derive
+  per-column widths and split the table into five equal columns — a layout that collapsed only
+  while something was running, which is why it looked intermittent. A `<colgroup>` pins the
+  widths regardless of what the first row happens to be.
 - **shadcn components hardcode variant-scoped classes.** `SheetContent` carries
   `data-[side=right]:sm:max-w-sm`; a plain `sm:max-w-2xl` loses to it and tailwind-merge will not
   dedupe across different variants. Override using the same variant form.
