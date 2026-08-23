@@ -7,6 +7,7 @@ import { KindGlyph } from './KindGlyph'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { isFree, FREE_ROW_CLASS } from './cost'
+import { LineBadge } from './LineBadge'
 import { gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import type { NestedEvent } from './collapse'
 import { t, fmtTime } from '@/i18n'
@@ -19,7 +20,7 @@ import { cn } from '@/lib/utils'
  */
 export function FeedRow ({
   e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
-  onLocate, locatable, expanded, onToggle
+  onLocate, locatable, expanded, onToggle, lines
 }: {
   e: NestedEvent
   gap: number
@@ -35,6 +36,7 @@ export function FeedRow ({
   locatable?: boolean
   expanded?: boolean
   onToggle?: () => void
+  lines?: Map<string, number>
 }) {
   const kids = e.children?.length ?? 0
   // a burst points at its shared directory; everything else at its own path
@@ -119,6 +121,12 @@ export function FeedRow ({
                 ? <FilePath path={rowText(e)} />
                 : rowText(e)}
           </span>
+
+          {/* Not on a burst: it stands for many files, so one file's length says
+              nothing about the row. */}
+          {!e.burst && e.path && (
+            <LineBadge lines={lines?.get(e.path)} />
+          )}
 
           {/* a collapsed call must still say how much it is hiding */}
           {kids > 0 && !expanded && (

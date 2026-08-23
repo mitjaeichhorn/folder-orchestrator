@@ -2,15 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { FolderTree } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { config } from '@/config'
 import { groupByFile } from './group-by-file'
-import { allFilesByLastChange, treeFiles, maxChanges, churnShare, churnColor, churnCss, changedPaths, deletedPaths } from './churn'
+import { allFilesByLastChange, maxChanges, churnShare, churnColor, churnCss, changedPaths, deletedPaths } from './churn'
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
+import { LineBadge } from './LineBadge'
+import { inDefaultLongFilter } from './lines'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
-import { isImagePath, LINE_ALERT_AT, isExecutablePath, isBadgeExempt } from '@shared/glob.js'
+import { isImagePath, LINE_ALERT_AT, isExecutablePath } from '@shared/glob.js'
 
 /** A page at a time: thousands of rows would stall the tab, and the tail is
     rarely read. "Show more" extends rather than truncating. */
@@ -30,32 +31,17 @@ type FileRowLike = { path: string; lines?: number }
  * Deliberately a different question from the heat tree: that shades by recency,
  * this by churn, in a different hue family so the two are never confused.
  */
-export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZoom }: {
+export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZoom, tree, error }: {
   events: OrchEvent[]
   folderId: string
   onSelect: (e: OrchEvent) => void
   onLocate?: (path: string | null) => void
   locatable?: boolean
   onZoom: (path: string) => void
+  /** Fetched once in Workspace and shared — four surfaces want line counts. */
+  tree: Array<{ p: string; m?: number; l?: number }> | null
+  error: boolean
 }) {
-  const [tree, setTree] = useState<Array<{ p: string; m?: number }> | null>(null)
-  const [error, setError] = useState(false)
-
-  // refetch when the set of files changes, not on every modification
-  const structureVersion = useMemo(
-    () => events.reduce((n, e) =>
-      n + (e.kind === 'created' || e.kind === 'deleted' || e.kind === 'renamed' ? 1 : 0), 0),
-    [events]
-  )
-
-  useEffect(() => {
-    let live = true
-    fetch(`${config.apiBase}/api/tree?folder=${encodeURIComponent(folderId)}`)
-      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(d => { if (live) { setTree(treeFiles(d.children)); setError(false) } })
-      .catch(() => { if (live) setError(true) })
-    return () => { live = false }
-  }, [folderId, structureVersion])
 
   const rows = useMemo(
     () => (tree ? allFilesByLastChange(tree, groupByFile(events)) : []),
@@ -67,7 +53,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
   const bySize = (a: FileRowLike, b: FileRowLike) => (b.lines ?? 0) - (a.lines ?? 0)
   const over = (r: FileRowLike) => typeof r.lines === 'number' && r.lines > LINE_ALERT_AT
   const longRows = useMemo(
-    () => rows.filter(r => over(r) && !isBadgeExempt(r.path)).sort(bySize), [rows])
+    () => rows.filter(r => inDefaultLongFilter(r.path, r.lines)).sort(bySize), [rows])
   // Python is measured but not badged by default, so it appears here and only
   // here — which is the whole point of keeping measurement and display apart.
   const execRows = useMemo(
@@ -75,9 +61,6 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
 
   const [mode, setMode] = useState<'all' | 'long' | 'exec'>('all')
   const view = mode === 'long' ? longRows : mode === 'exec' ? execRows : rows
-  // a row is badged when it qualifies under the lens currently applied
-  const badged = (r: FileRowLike) =>
-    over(r) && (mode === 'exec' ? isExecutablePath(r.path) : !isBadgeExempt(r.path))
 
   // the tree is only refetched on a debounce, so it can still list a file we
   // have already watched being deleted
@@ -178,13 +161,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
             </span>
 
             {/* The count is the point: "long" is a judgement, 6,314 is a fact. */}
-            {typeof f.lines === 'number' && badged(f) && (
-              <Badge variant="outline"
-                className="text-muted-foreground shrink-0 tabular-nums"
-                title={t('files.longFile', { n: fmtNum(f.lines), at: fmtNum(LINE_ALERT_AT) })}>
-                {t('files.lines', { n: fmtNum(f.lines) })}
-              </Badge>
-            )}
+            <LineBadge lines={f.lines} />
 
             {f.actors.has('claude') && (
               <Badge variant="secondary" className="shrink-0 text-violet-300">{t('actor.claude')}</Badge>

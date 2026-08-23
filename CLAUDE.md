@@ -129,6 +129,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   change: 591ms cold, 170ms warm on a 4,783-file project. `.jsonl` is exempt with `.json` —
   a line-delimited log is thousands of lines by definition, and the five longest files in the
   test project were all append-only logs.
+- **The long-file badge is one rule; the exemption lives in the FILTER.** Showing the count
+  everywhere but exempting python from the badge left the feed, By topic and the detail panel
+  permanently blank — measured live, all five long files present in the feed were `.py`, and the
+  panel for a 1,648-line `test_runner.py` showed nothing. Only By file has filters, so only By
+  file can express "not python"; a rule that hides the answer where it cannot be un-hidden is a
+  bug, not a rule. The tree is fetched ONCE in `Workspace` and the path→lines map passed down —
+  `FileList` used to fetch its own copy, so four surfaces cost one request fewer than one did.
 - **Measuring a file and badging it are two lists, not one.** Python is counted but carries no
   badge in the default view — the operator's call — which is exactly why the executables filter
   can show it: 40 of that project's 58 long executables are `.py`, and a single exemption list

@@ -22,6 +22,9 @@ import { Rules } from '@/features/Rules'
 import { Usage } from '@/features/Usage'
 import { HeatTree } from '@/features/HeatTree'
 import { runningPaths } from '@/features/timeline'
+import { lineIndex } from '@/features/lines'
+import { treeFiles } from '@/features/churn'
+import { config } from '@/config'
 import { folderFromHash, hashForFolder, pickFolder } from '@/features/url-state'
 import { api, type Folder, type OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
@@ -35,6 +38,28 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   const running = useMemo(() => runningPaths(events), [events])
   // hovering a feed row reveals that file in the heat tree — same route as `running`
   const [hoverPath, setHoverPath] = useState<string | null>(null)
+
+  // The tree is the only source of line counts, and four surfaces want them —
+  // feed, By topic, By file, detail panel. Fetched once here rather than per
+  // component: FileList used to fetch its own copy, so this is one request
+  // fewer, not one more. Refetched on structural change only, like the heat
+  // tree: a modification never changes which files exist.
+  const [treeRows, setTreeRows] = useState<Array<{ p: string; m?: number; l?: number }> | null>(null)
+  const [treeError, setTreeError] = useState(false)
+  const structureVersion = useMemo(
+    () => events.reduce((n, e) =>
+      n + (e.kind === 'created' || e.kind === 'deleted' || e.kind === 'renamed' ? 1 : 0), 0),
+    [events]
+  )
+  useEffect(() => {
+    let live = true
+    fetch(`${config.apiBase}/api/tree?folder=${encodeURIComponent(folder.id)}`)
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(d => { if (live) { setTreeRows(treeFiles(d.children)); setTreeError(false) } })
+      .catch(() => { if (live) setTreeError(true) })
+    return () => { live = false }
+  }, [folder.id, structureVersion])
+  const lines = useMemo(() => lineIndex(treeRows), [treeRows])
 
   // Name the open project in the tab, so several orchestrator tabs stay
   // tellable apart. Restored on unmount rather than left behind.
@@ -105,7 +130,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         <TabsContent value="activity" className="min-h-0 flex-1 overflow-hidden">
           <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
             folderId={folder.id} filtersOpen={filtersOpen} running={running}
-            onLocate={setHoverPath} locatable={heatOpen} />
+            onLocate={setHoverPath} locatable={heatOpen}
+            treeRows={treeRows} treeError={treeError} lines={lines} />
         </TabsContent>
 
         <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">
@@ -138,7 +164,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
             <SheetTitle className="text-xs font-medium">{t('detail.title')}</SheetTitle>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-hidden">
-            {selected && <DetailPanel event={selected} folder={folder} onMute={mute} />}
+            {selected && <DetailPanel event={selected} folder={folder} onMute={mute} lines={lines} />}
           </div>
         </SheetContent>
       </Sheet>

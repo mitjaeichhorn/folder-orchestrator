@@ -25,7 +25,8 @@ const WINDOWS = [
 
 
 export function Feed ({
-  events, evicted, selected, onSelect, folderId, filtersOpen = true, running, onLocate, locatable
+  events, evicted, selected, onSelect, folderId, filtersOpen = true, running, onLocate, locatable,
+  treeRows, treeError, lines
 }: {
   events: OrchEvent[]
   evicted: number
@@ -36,6 +37,9 @@ export function Feed ({
   running?: Set<string>
   onLocate?: (path: string | null) => void
   locatable?: boolean
+  treeRows: Array<{ p: string; m?: number; l?: number }> | null
+  treeError: boolean
+  lines: Map<string, number>
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
@@ -149,11 +153,13 @@ export function Feed ({
           // flatRows for the same reason as the topic view: this one aggregates
           // per file itself, so it needs every event, not the nested shape
           ? <FileList events={flatRows} folderId={folderId} onSelect={onSelect}
-              onLocate={onLocate} locatable={locatable} onZoom={setZoom} />
+              onLocate={onLocate} locatable={locatable} onZoom={setZoom}
+              tree={treeRows} error={treeError} />
           : view === 'tree'
           // flatRows, not rows: the topic tree groups every event itself, and
           // handing it the nested array would hide every adopted child
-          ? <Tree events={flatRows} selected={selected} onSelect={onSelect} folderId={folderId} onZoom={setZoom} />
+          ? <Tree events={flatRows} selected={selected} onSelect={onSelect} folderId={folderId}
+              onZoom={setZoom} lines={lines} />
           : rows.length === 0
             ? <p className="text-muted-foreground p-8 text-center text-sm">
                 {events.length === 0 ? t('feed.empty') : t('feed.emptyFiltered')}
@@ -201,7 +207,7 @@ export function Feed ({
                   <FeedRow
                     e={e} gap={rowGaps[i]} now={now} depth={0}
                     folderId={folderId} selected={selected} onSelect={onSelect}
-                    running={running} onZoom={setZoom} gone={gone}
+                    running={running} onZoom={setZoom} gone={gone} lines={lines}
                     onLocate={onLocate} locatable={locatable}
                     expanded={!collapsedCalls.has(String(e.id))}
                     onToggle={() => toggleCall(String(e.id))} />
@@ -209,7 +215,7 @@ export function Feed ({
                     <FeedRow key={c.id ?? `${c.ts}-${c.path}`}
                       e={c} gap={0} now={now} depth={1}
                       folderId={folderId} selected={selected} onSelect={onSelect}
-                      running={running} onZoom={setZoom} gone={gone}
+                      running={running} onZoom={setZoom} gone={gone} lines={lines}
                       onLocate={onLocate} locatable={locatable} />
                   ))}
                   </Fragment>

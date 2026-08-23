@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type OrchEvent, type Folder } from '@/lib/api'
 import { isImagePath, isMarkdownPath } from '@shared/glob.js'
 import { Thumb } from './Thumb'
+import { LineBadge } from './LineBadge'
 import { Lightbox } from './Lightbox'
 import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
@@ -69,10 +70,12 @@ function Diff ({ oldS, newS }: { oldS?: { text?: string; truncated?: boolean }; 
   )
 }
 
-export function DetailPanel ({ event, folder, onMute }: {
+export function DetailPanel ({ event, folder, onMute, lines }: {
   event: OrchEvent | null
   folder: Folder
   onMute: (pattern: string) => void
+  /** Path -> line count, from the tree fetched once in Workspace. */
+  lines?: Map<string, number>
 }) {
   // Its own lightbox: DetailPanel is a sibling of Feed, not a child, so there is
   // no shared state to lift — and two overlays can never both be open anyway.
@@ -142,6 +145,9 @@ export function DetailPanel ({ event, folder, onMute }: {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant={event.actor === 'claude' ? 'secondary' : 'outline'}>{t(`actor.${event.actor}`)}</Badge>
             {event.tool && <Badge variant="outline">{event.tool}</Badge>}
+            {event.path && (
+              <LineBadge lines={lines?.get(event.path)} />
+            )}
             {typeof d.linesAdded === 'number' && (
               <span className="font-mono text-xs text-emerald-400">{t('detail.linesAdded', { n: d.linesAdded })}</span>
             )}

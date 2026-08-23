@@ -9,15 +9,17 @@ import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { ToolLabel } from './ToolLabel'
 import { KindGlyph } from './KindGlyph'
+import { LineBadge } from './LineBadge'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
+export function Tree ({ events, selected, onSelect, folderId, onZoom, lines }: {
   events: OrchEvent[]
   selected: OrchEvent | null
   onSelect: (e: OrchEvent) => void
   folderId: string
+  lines?: Map<string, number>
   onZoom?: (path: string) => void
 }) {
   const topics = useMemo(() => groupByTopic(events), [events])
@@ -67,6 +69,9 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom }: {
                       {fg.path === NO_FILE
                         ? <span className="text-muted-foreground italic">{t('tree.noFile')}</span>
                         : <FilePath path={fg.path} />}
+                      {fg.path !== NO_FILE && (
+                        <LineBadge lines={lines?.get(fg.path)} className="ml-2" />
+                      )}
                     </span>
                     {fg.changes > 0 && (
                       <span className="text-muted-foreground shrink-0 text-xs">
