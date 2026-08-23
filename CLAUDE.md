@@ -123,7 +123,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   AppleScript via `execFile` — no shell, no interpolation, nothing the client sends reaches it.
 - **The heat tree refetches only on structural change.** created/deleted/renamed change the
   shape; modified never does. Debounced, or a build refetches the tree hundreds of times.
-- **`/api/file` is an allow-list.** Only image extensions, only inside the folder, and the
+- **Markdown from a watched folder is untrusted input to our page.** A watched tree can be any
+  repo you cloned, and markdown permits embedded HTML. `react-markdown` drops raw HTML unless
+  `rehype-raw` is added — so the safe behaviour is the default one, and the control is a test
+  asserting that plugin is absent from `package.json` and that no `rehypePlugins` prop exists.
+  `remark-gfm` is fine: it is a *parser* extension (tables, task lists), not an HTML one, and
+  without it this file's own stack table renders as a wall of pipes.
+- **`/api/file` is an allow-list.** Image extensions plus markdown, only inside the folder, and the
   symlink check realpaths *both* sides — on macOS the folder itself often sits under a symlink
   (`/var` → `/private/var`), and comparing a resolved file to an unresolved root rejects
   everything legitimate.

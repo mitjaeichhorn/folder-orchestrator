@@ -49,3 +49,13 @@ export function isImagePath (p) {
   const i = p.lastIndexOf('.')
   return i !== -1 && IMAGE_EXTS.includes(p.slice(i).toLowerCase())
 }
+
+// Markdown extensions the server will serve as text. Same contract as images:
+// shared so the client never asks for something the server would refuse.
+export const MARKDOWN_EXTS = ['.md', '.markdown', '.mdown', '.mkd']
+
+export function isMarkdownPath (p) {
+  if (typeof p !== 'string') return false
+  const i = p.lastIndexOf('.')
+  return i !== -1 && MARKDOWN_EXTS.includes(p.slice(i).toLowerCase())
+}

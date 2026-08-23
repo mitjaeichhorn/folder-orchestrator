@@ -7,7 +7,7 @@ import * as bus from './bus.js'
 import * as watcher from './watcher.js'
 import * as transcripts from './transcripts.js'
 import * as rules from './rules.js'
-import { serveImage } from './serve-file.js'
+import { serveFile } from './serve-file.js'
 import { buildTree } from './tree.js'
 import { fileDiff } from './diff.js'
 import { pickFolder } from './pick-folder.js'
@@ -166,7 +166,7 @@ const server = createServer(async (req, res) => {
     } else if (p === '/api/file' && req.method === 'GET') {
       const folder = db.getFolder(database, url.searchParams.get('folder'))
       if (!folder) { status = 404; res.writeHead(404).end() }
-      else status = serveImage(res, folder, url.searchParams.get('path'))
+      else status = serveFile(res, folder, url.searchParams.get('path'))
 
     // --- reveal (read-only shell-out, no writes into the watched tree)
     } else if (p === '/api/reveal' && req.method === 'POST') {

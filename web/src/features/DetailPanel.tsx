@@ -1,16 +1,20 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type OrchEvent, type Folder } from '@/lib/api'
-import { isImagePath } from '@shared/glob.js'
+import { isImagePath, isMarkdownPath } from '@shared/glob.js'
 import { Thumb } from './Thumb'
 import { Lightbox } from './Lightbox'
 import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
 import { cn } from '@/lib/utils'
+
+// ~100kb of parser, for a file type most rows are not. Kept out of the initial
+// chunk — the panel renders without it and fills in when it lands.
+const Markdown = lazy(() => import('./Markdown'))
 
 const AGAINST_KEY: Record<string, string> = {
   worktree: 'detail.againstWorktree', head: 'detail.againstHead', untracked: 'detail.againstUntracked'
@@ -90,6 +94,23 @@ export function DetailPanel ({ event, folder, onMute }: {
     return () => { live = false }
   }, [folder.id, path, needsGit])
 
+  // Markdown preview. A deleted file has nothing on disk to read, so the
+  // section is skipped entirely rather than showing an error for a known cause.
+  const [md, setMd] = useState<{ text: string } | { error: true } | null>(null)
+  const [mdRaw, setMdRaw] = useState(false)
+  const wantsMd = !!path && isMarkdownPath(path) && event?.kind !== 'deleted'
+  useEffect(() => {
+    if (!wantsMd || !path) { setMd(null); return }
+    let live = true
+    setMd(null)
+    api.fileText(folder.id, path)
+      .then(text => { if (live) setMd({ text }) })
+      .catch(() => { if (live) setMd({ error: true }) })
+    return () => { live = false }
+  }, [folder.id, path, wantsMd])
+  // the toggle is a per-file choice, not a sticky preference
+  useEffect(() => { setMdRaw(false) }, [path])
+
   // navigator.clipboard needs a secure context; localhost qualifies, but a
   // failure must say so rather than silently copying nothing.
   const copy = async (text: string, label: string) => {
@@ -167,6 +188,31 @@ export function DetailPanel ({ event, folder, onMute }: {
               <Thumb folderId={folder.id} path={event.path} size={0} onOpen={setZoom}
                 className="h-auto max-h-72 w-auto max-w-full object-contain" />
             </div>
+          </div>
+        )}
+
+        {wantsMd && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <p className="text-muted-foreground text-xs uppercase">{t('detail.markdown')}</p>
+              <Button size="sm" variant="ghost" className="ml-auto h-6 text-xs"
+                onClick={() => setMdRaw(v => !v)}>
+                {t(mdRaw ? 'detail.markdownRendered' : 'detail.markdownRaw')}
+              </Button>
+            </div>
+            {md === null
+              ? <p className="text-muted-foreground text-xs">{t('detail.markdownLoading')}</p>
+              : 'error' in md
+                ? <p className="text-muted-foreground text-xs">{t('detail.markdownError')}</p>
+                : mdRaw
+                  ? <pre className="bg-muted/40 rounded-md border p-2 font-mono text-xs break-words whitespace-pre-wrap">{md.text}</pre>
+                  : (
+                    <div className="bg-muted/40 rounded-md border p-3">
+                      <Suspense fallback={<p className="text-muted-foreground text-xs">{t('detail.markdownLoading')}</p>}>
+                        <Markdown text={md.text} />
+                      </Suspense>
+                    </div>
+                  )}
           </div>
         )}
 

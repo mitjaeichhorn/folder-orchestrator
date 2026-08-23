@@ -84,5 +84,11 @@ export const api = {
     '/api/pick-folder', { method: 'POST', body: '{}' }),
   fileUrl: (folderId: string, path: string) =>
     `${config.apiBase}/api/file?folder=${encodeURIComponent(folderId)}&path=${encodeURIComponent(path)}`,
-  reveal: (path: string) => req<{ ok: boolean }>('/api/reveal', { method: 'POST', body: JSON.stringify({ path }) })
+  reveal: (path: string) => req<{ ok: boolean }>('/api/reveal', { method: 'POST', body: JSON.stringify({ path }) }),
+  /** Raw text of a served file. Not `req()`: that parses JSON, this is markdown. */
+  fileText: async (folderId: string, path: string) => {
+    const res = await fetch(api.fileUrl(folderId, path))
+    if (!res.ok) throw Object.assign(new Error('file'), { status: res.status })
+    return res.text()
+  }
 }
