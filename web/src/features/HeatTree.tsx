@@ -152,12 +152,9 @@ export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile }: 
 
   const roots = useMemo(() => {
     // "Active only" builds its tree from the stamped paths themselves rather
-    // than pruning the fetched one. /api/tree is capped at MAX_NODES and walks
-    // depth-first in alphabetical order, so on a 16,000-file project the budget
-    // was spent on `.claude` … `admin` and never reached `apps/` or
-    // `import-pipeline/` — every recently changed path fell outside it and the
-    // panel showed "0 paths" while the feed scrolled. Derived from events, the
-    // cap cannot reach this view.
+    // than pruning the fetched one. It is derived from the events, so it cannot
+    // be affected by anything the tree walk does or does not reach — which is
+    // what broke it when /api/tree still had a node cap.
     if (activeOnly) {
       const reveal = revealPredicate(isActive, chain)
       return treeFromPaths([...heat.stamps.keys()].filter(reveal))
@@ -206,9 +203,6 @@ export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile }: 
                 ))}
                 {activeOnly && roots.length === 0 && (
                   <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>
-                )}
-                {tree.truncated && (
-                  <p className="text-muted-foreground border-t px-2 py-2 text-[10px]">{t('heat.truncated')}</p>
                 )}
               </>
             )}

@@ -137,7 +137,6 @@
   "heat.nodes": "{n} paths",
   "heat.loading": "Reading tree…",
   "heat.error": "Could not read the project tree",
-  "heat.truncated": "Tree truncated — the project is larger than the display cap",
   "heat.toggle": "Heat",
   "lightbox.close": "Close",
   "lightbox.hint": "Click anywhere or press Esc to close",

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildTree, MAX_NODES } from './tree.js'
+import { buildTree, MAX_DEPTH } from './tree.js'
 
 const tmp = t => { const d = mkdtempSync(join(tmpdir(), 'orchtr-')); t.after(() => rmSync(d, { recursive: true, force: true })); return d }
 const flat = (nodes, out = []) => { for (const n of nodes) { out.push(n.p); if (n.c) flat(n.c, out) } return out }
@@ -57,12 +57,12 @@ test('an unreadable directory yields an empty branch, never a throw', t => {
 
 test('truncation is reported, never silent', t => {
   const d = tmp(t)
-  // cheaper than MAX_NODES files: assert the flag exists and is false when under cap
+  // the node cap is gone; only depth can truncate, and no real tree is that deep
   writeFileSync(join(d, 'a.ts'), 'x')
   const tree = buildTree({ id: 'F', path: d, ignore: [] })
   assert.equal(tree.truncated, false)
   assert.equal(tree.nodes, 1)
-  assert.ok(MAX_NODES > 0)
+  assert.ok(MAX_DEPTH > 0)
 })
 
 test('files carry their mtime so every file can be ranked by last change', t => {

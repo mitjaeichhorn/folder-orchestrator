@@ -4,7 +4,6 @@ import { compile, shouldIgnore } from './ignore.js'
 import { countsForLineAlert, LINE_ALERT_AT } from '../shared/glob.js'
 import { log } from './log.js'
 
-export const MAX_NODES = 12000
 export const MAX_DEPTH = 24
 
 /** Reading a file this large to count its lines is not worth it. */
@@ -59,8 +58,13 @@ function countLines (abs, rel, size, mtime) {
  * The project's directory tree, ignore rules applied — the same rules the
  * watcher uses, so the heatmap can never show a path that will never light up.
  *
- * Capped at MAX_NODES. When the cap is hit the response says so explicitly:
- * a silently truncated tree reads as "that's the whole project".
+ * NOT capped by node count. There used to be a 12,000-node ceiling, and on a
+ * 16,000-file project it cut the walk off mid-alphabet — every recently changed
+ * path fell outside the result and the heat panel showed nothing. Measured with
+ * the ignore rules applied, the whole tree is 16,184 nodes in 209ms, so the cap
+ * was guarding against a cost that does not exist: the deny-dirs and .gitignore
+ * do the real work. `MAX_DEPTH` stays as a loop guard — the deepest real tree
+ * here is 9 — and is the only thing that can still set `truncated`.
  */
 export function buildTree (folder) {
   const compiled = compile(folder)
@@ -73,7 +77,6 @@ export function buildTree (folder) {
     const out = []
     entries.sort((a, b) => (b.isDirectory() - a.isDirectory()) || a.name.localeCompare(b.name))
     for (const e of entries) {
-      if (state.count >= MAX_NODES) { state.truncated = true; break }
       const childAbs = join(abs, e.name)
       const rel = relative(folder.path, childAbs).split(sep).join('/')
       if (shouldIgnore(rel, compiled)) continue
