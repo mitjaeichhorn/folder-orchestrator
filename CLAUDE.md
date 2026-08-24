@@ -242,6 +242,23 @@ are noise — ignore unknown types silently, the format changes without notice.
   same folder. A hash rather than a path because the server serves index.html for unknown paths —
   a hash never reaches it, so there is nothing to misroute. A URL naming a folder that no longer
   exists falls back to the previous selection, then the first; it never blanks the screen.
+- **In the lane view the TILE and the TIME are separate elements, and that is the whole point.**
+  While they were one box, the tile's minimum readable height was also the floor on expressible
+  duration — everything from 0 to ~3s rendered identically. Split, the tile owns legibility and the
+  connector owns duration, so the scale starts at one second. The connector measures back to the
+  previous tile IN ITS OWN LANE, never to the row above: Work landing every few seconds while Test
+  climbs past ten minutes is the picture, and a per-row gap would print one number three times.
+- **The lane view runs the other way: newest at the BOTTOM.** Time reads downward into the present,
+  so new work arrives at the floor and pushes everything up, and each lane ends in an open
+  connector still growing — the silence since that lane last did anything. Newest-at-top cannot
+  show that; the growing edge would be off the top of the list. Consequence: this view pins to the
+  bottom while every other view pins to the top.
+- **Same-millisecond events in one lane collapse to a `×n` tile, for a mechanical reason.**
+  `watcher.js` stamps `ts` when its 50ms debounce FLUSHES, so paths changed by one operation are
+  written with one identical timestamp — measured, 6% of events here and 31% on the larger project
+  share an exact millisecond, in clusters up to 12. Same millisecond means one action. Rendering it
+  as N tiles each claiming `0.0s` would invent N events from one batch, and ordering inside such a
+  cluster comes only from insertion order, which is not causal.
 - **The lane view's spine is half the data, not a leftover.** Planning / work / test are columns,
   but ~half of all events name no file at all — 53% here, 45% on a larger project — because `Bash`,
   MCP calls and prompts carry no path. Those render FULL WIDTH, which is what ties the three lanes

@@ -189,6 +189,7 @@
   "lane.planning": "Planning",
   "lane.work": "Work",
   "lane.test": "Test",
+  "lane.alsoFiles": "×{n}",
   "files.empty": "No files in this project",
   "files.count": "{n} files",
   "files.legend": "changed once → most often",

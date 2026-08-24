@@ -1,25 +1,32 @@
+import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { laneOf, laneProfile, LANES, LANE_TONE, type Lane } from './lanes'
+import { laneProfile, LANES, LANE_TONE, type Lane } from './lanes'
+import { laneRows, openGaps } from './lane-layout'
+import { gapPx, fmtGap, isCapped, isRunning } from './timeline'
 import { FilePath } from './FilePath'
 import { ToolLabel } from './ToolLabel'
 import { KindGlyph } from './KindGlyph'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { sessionLabel } from './session-color'
-import { isRunning } from './timeline'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /**
- * Planning · work · test, with one shared timeline down the middle.
+ * Planning · work · test as tiles, on one clock, with time running DOWNWARD into
+ * the present: new work arrives at the bottom and pushes everything up.
  *
- * Chronology is preserved exactly: rows appear in the same order as the feed,
- * they simply sit in different columns. An event with a file goes to its lane;
- * an event with none — `Bash`, MCP, prompts, about half of all traffic — spans
- * the full width. That spanning row IS the centralised timeline: it is what
- * ties the three lanes to one clock, and it is why the spine cannot be a fourth
- * column without the view losing its spine.
+ * The tile and the time are separate elements on purpose. While they were one
+ * box, the tile's minimum readable height was also the floor on expressible
+ * duration, so everything from 0 to ~3 seconds looked identical. Split, the tile
+ * owns legibility and the connector owns duration, and the scale can start at
+ * one second.
+ *
+ * Each lane keeps its own cadence: a connector measures back to the previous
+ * tile IN THAT LANE, not to the row above. Work landing every few seconds while
+ * Test climbs past ten minutes is the picture this view exists to show, and a
+ * per-row gap would print the same number in all three columns.
  */
 export function LaneView ({ events, selected, onSelect, sessionTones, sessionNames }: {
   events: OrchEvent[]
@@ -28,32 +35,103 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
   sessionTones?: Map<string, string>
   sessionNames?: Map<string, string>
 }) {
+  // the feed hands rows newest-first; this view reads into the present
+  const asc = [...events].reverse()
+  const rows = laneRows(asc as never)
+  const profile = laneProfile(events)
+
+  // Tick only while something is in flight, matching the feed: an idle view must
+  // not re-render every second just to age its open connectors.
+  const anyRunning = events.some(isRunning)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!anyRunning) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [anyRunning])
+  const open = openGaps(asc as never, now)
+
+  // Pinned to the BOTTOM, not the top — the present is the floor here.
+  const viewport = useRef<HTMLDivElement>(null)
+  const pinned = useRef(true)
+  useEffect(() => {
+    const el = viewport.current
+    if (el && pinned.current) el.scrollTop = el.scrollHeight
+  }, [rows.length])
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+  }
+
   if (events.length === 0) {
     return <p className="text-muted-foreground p-8 text-center text-sm">{t('feed.empty')}</p>
   }
-  const profile = laneProfile(events)
 
-  const Cell = ({ e }: { e: OrchEvent }) => (
-    <button onClick={() => onSelect(e)}
-      className={cn('hover:bg-muted/50 w-full min-w-0 rounded-sm px-1.5 py-0.5 text-left',
-        selected?.id === e.id && 'bg-muted')}>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="text-muted-foreground/70 shrink-0 font-mono text-[10px] tabular-nums">
-          {fmtTime(e.ts)}
+  /** The wait before a tile. Its own element, so one second is still legible. */
+  const Connector = ({ ms, live }: { ms: number | null; live?: boolean }) => {
+    if (ms === null) return null
+    const h = gapPx(ms)
+    return (
+      <div className="flex flex-col items-center justify-center"
+        style={{ height: Math.max(h, 10) }}
+        title={t(isCapped(ms) ? 'feed.gapCappedHint' : 'feed.gapHint', { d: fmtGap(ms) })}>
+        <div className={cn('w-px flex-1', live ? 'bg-lime-400/50' : 'bg-muted-foreground/30')} />
+        {(h >= 22 || isCapped(ms)) && (
+          <span className={cn('py-0.5 text-[10px] tabular-nums',
+            isCapped(ms) ? 'text-amber-500/70' : live ? 'text-lime-400/80' : 'text-muted-foreground/60')}>
+            {isCapped(ms) ? `↕ ${fmtGap(ms)}` : fmtGap(ms)}
+          </span>
+        )}
+        <div className={cn('w-px flex-1', live ? 'bg-lime-400/50' : 'bg-muted-foreground/30')} />
+      </div>
+    )
+  }
+
+  const Tile = ({ cell }: { cell: NonNullable<ReturnType<typeof laneRows>[number]['cells'][Lane]> }) => {
+    const e = cell.ev as unknown as OrchEvent
+    const lines = e.detail?.linesAdded
+    return (
+      <button onClick={() => onSelect(e)}
+        title={cell.count > 1 ? cell.paths.join('\n') : (e.path ?? undefined)}
+        className={cn('w-full min-w-0 rounded-md border px-2 py-1 text-left',
+          'hover:bg-muted/50', selected?.id === e.id && 'bg-muted',
+          // solid border = a call named this file; dashed = it merely changed
+          // while one was running. Co-occurrence, not authorship.
+          e.actor === 'claude' ? 'border-border' : 'border-dashed border-border/50')}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <KindGlyph kind={e.kind} pulse={isRunning(e)} />
+          <span className="min-w-0 flex-1 truncate font-mono text-xs">
+            {e.path ? <FilePath path={e.path} /> : rowText(e)}
+          </span>
+          {cell.count > 1 && (
+            <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 font-mono text-[10px]">
+              {t('lane.alsoFiles', { n: cell.count })}
+            </span>
+          )}
         </span>
-        <KindGlyph kind={e.kind} pulse={isRunning(e)} />
-        <span className={cn('truncate text-xs',
-          isAuthored(e) ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE) : 'font-mono')}>
-          {e.path ? <FilePath path={e.path} /> : rowText(e)}
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+          {e.sessionId && (
+            <span className={cn('shrink-0 truncate font-mono text-[10px]',
+              sessionTones?.get(e.sessionId) ?? 'text-muted-foreground')}>
+              {sessionLabel(sessionNames?.get(e.sessionId), e.sessionId)}
+            </span>
+          )}
+          <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
+            {fmtTime(e.ts)}
+          </span>
+          {typeof lines === 'number' && (
+            <span className="ml-auto shrink-0 font-mono text-[10px] text-emerald-400">
+              {t('detail.linesAdded', { n: lines })}
+            </span>
+          )}
         </span>
-      </span>
-    </button>
-  )
+      </button>
+    )
+  }
 
   return (
-    <div className="text-sm">
-      {/* Lane totals, so an empty column is visibly empty rather than ambiguous */}
-      <div className="text-muted-foreground bg-background sticky top-0 z-10 grid grid-cols-3 gap-2 border-b px-3 py-1.5 text-xs">
+    <div className="flex h-full min-h-0 flex-col text-sm">
+      <div className="text-muted-foreground bg-background grid shrink-0 grid-cols-3 gap-2 border-b px-3 py-1.5 text-xs">
         {LANES.map(l => (
           <span key={l} className={cn('truncate', LANE_TONE[l])}>
             {t(`lane.${l}`)} · {fmtNum(profile[l])}
@@ -61,43 +139,55 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-x-2 px-3 py-1">
-        {events.map(e => {
-          const lane = laneOf(e.path)
-          if (lane === 'spine') {
-            // full width: the shared clock every lane is read against
-            return (
-              <div key={e.id ?? `${e.ts}-spine`} className="col-span-3 my-0.5 border-y border-dashed border-muted/60">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="text-muted-foreground/70 shrink-0 font-mono text-[10px] tabular-nums">
-                    {fmtTime(e.ts)}
+      <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        {rows.map((r, i) => r.spine
+          ? (
+            // Full width: the shared clock, and about half of all events
+            <div key={r.spine.id ?? `s${i}`}
+              className="border-muted/60 my-1 flex min-w-0 items-center gap-1.5 border-y border-dashed py-0.5">
+              <span className="text-muted-foreground/60 shrink-0 font-mono text-[10px] tabular-nums">
+                {fmtTime(r.spine.ts)}
+              </span>
+              <ToolLabel tool={(r.spine as unknown as OrchEvent).tool} className="shrink-0" />
+              <button onClick={() => onSelect(r.spine as unknown as OrchEvent)}
+                className={cn('hover:bg-muted/50 min-w-0 flex-1 truncate rounded-sm px-1 text-left text-xs',
+                  isAuthored(r.spine as unknown as OrchEvent)
+                    ? ((r.spine as unknown as OrchEvent).kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
+                    : 'font-mono',
+                  selected?.id === r.spine.id && 'bg-muted')}>
+                {rowText(r.spine as unknown as OrchEvent)}
+              </button>
+              {r.spine.sessionId && (
+                <Badge variant="outline"
+                  className={cn('max-w-32 shrink-0 truncate', sessionTones?.get(r.spine.sessionId))}>
+                  <span className="truncate">
+                    {sessionLabel(sessionNames?.get(r.spine.sessionId), r.spine.sessionId)}
                   </span>
-                  <ToolLabel tool={e.tool} className="shrink-0" />
-                  <button onClick={() => onSelect(e)}
-                    className={cn('min-w-0 flex-1 truncate rounded-sm px-1 text-left text-xs hover:bg-muted/50',
-                      isAuthored(e) ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE) : 'font-mono',
-                      selected?.id === e.id && 'bg-muted')}>
-                    {rowText(e)}
-                  </button>
-                  {e.sessionId && (
-                    <Badge variant="outline"
-                      className={cn('shrink-0 max-w-32 truncate', sessionTones?.get(e.sessionId))}>
-                      <span className="truncate">
-                        {sessionLabel(sessionNames?.get(e.sessionId), e.sessionId)}
-                      </span>
-                    </Badge>
-                  )}
-                </span>
-              </div>
-            )
-          }
-          const col = LANES.indexOf(lane as Lane) + 1
-          return (
-            <div key={e.id ?? `${e.ts}-${e.path}`} style={{ gridColumn: col }} className="min-w-0">
-              <Cell e={e} />
+                </Badge>
+              )}
             </div>
           )
-        })}
+          : (
+            <div key={`r${i}`} className="grid grid-cols-3 items-end gap-x-2">
+              {LANES.map(lane => {
+                const cell = r.cells[lane]
+                return (
+                  <div key={lane} className="min-w-0">
+                    {cell ? <><Connector ms={cell.gapMs} /><Tile cell={cell} /></> : null}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+
+        {/* The open connectors: how long each lane has been silent, still growing. */}
+        <div className="grid grid-cols-3 gap-x-2">
+          {LANES.map(lane => (
+            <div key={lane} className="min-w-0">
+              {open[lane] !== undefined && <Connector ms={open[lane] as number} live />}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
