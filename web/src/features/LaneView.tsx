@@ -120,7 +120,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
           {e.sessionId && (
-            <span className={cn('min-w-0 font-mono text-[10px] break-words',
+            <span className={cn('min-w-0 shrink-0 truncate font-mono text-[10px]',
               sessionTones?.get(e.sessionId) ?? 'text-muted-foreground')}>
               {sessionLabel(sessionNames?.get(e.sessionId), e.sessionId)}
             </span>
@@ -179,9 +179,8 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
               </button>
               {r.spine.sessionId && (
                 <Badge variant="outline"
-                  className={cn('h-auto max-w-48 shrink-0 leading-tight break-words whitespace-normal',
-                    sessionTones?.get(r.spine.sessionId))}>
-                  <span className="break-words">
+                  className={cn('max-w-48 shrink-0 truncate', sessionTones?.get(r.spine.sessionId))}>
+                  <span className="truncate">
                     {sessionLabel(sessionNames?.get(r.spine.sessionId), r.spine.sessionId)}
                   </span>
                 </Badge>

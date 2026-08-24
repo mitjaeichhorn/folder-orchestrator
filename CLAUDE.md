@@ -60,12 +60,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   never in the UI.
 - **Editors fire event storms.** One save can produce several events (atomic write = temp file +
   rename). Debounce per path (~50ms) at the source.
-- **Nothing is cropped with an ellipsis; text wraps instead.** A truncated path hides its TAIL,
-  which is the filename — the one part that identifies it — so `…/internal/rou…` was the least
-  useful 40 characters available. Paths have no spaces, so `break-words` alone will not split them:
-  it takes `overflow-wrap: anywhere`. Rows are now variable height and the feed is taller; that is
-  the trade. Session-name badges need three overrides to wrap, because shadcn's `Badge` base is
-  `h-5` + `whitespace-nowrap` + `overflow-hidden` — set only one and it silently keeps clipping.
+- **Content wraps, tags crop.** A truncated path hides its TAIL — the filename, the one part that
+  identifies it — so `…/internal/rou…` was the least useful 40 characters on offer; row content is
+  therefore never cropped. Paths have no spaces, so `break-words` alone will not split them: it
+  takes `overflow-wrap: anywhere`. A session-name badge is a TAG, not content — one line, ellipsis,
+  full name in the `title` — because a wrapping pill changes the row's height for a label that is
+  the same on every row of that agent's work. Rows are variable height either way, so the feed is
+  taller than it was; that is the trade.
 - **The row's pill names the AGENT, and its FORM carries the attribution.** It used to read
   "claude" or "during", which was nearly free of information — a tool row is Claude by definition —
   while *which* of several agents did it was shown nowhere. The pill now says the session's name,

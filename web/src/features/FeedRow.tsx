@@ -165,9 +165,10 @@ export function FeedRow ({
         {(e.actor === 'claude' || e.actor === 'during-claude') && (
           <Badge
             variant={e.actor === 'claude' ? 'secondary' : 'outline'}
-            // h-auto + whitespace-normal override the badge's fixed height and
-            // nowrap: a session name is prose and should wrap, not be cropped
-            className={cn('h-auto max-w-full justify-end text-right leading-tight break-words whitespace-normal',
+            // A TAG, not content: one line, cropped with an ellipsis. The column
+            // is wide enough that most names fit, and the full name is in the
+            // title. Row CONTENT wraps instead — see the label span above.
+            className={cn('max-w-full justify-end truncate',
               sessionTone ?? 'text-violet-300',
               e.actor === 'during-claude' && 'opacity-80')}
             title={e.sessionId
@@ -175,7 +176,7 @@ export function FeedRow ({
                   ? t('feed.sessionPill', { name: sessionName, id: e.sessionId, actor: t(`actor.${e.actor}`) })
                   : t('feed.sessionPillUnnamed', { id: e.sessionId, actor: t(`actor.${e.actor}`) }))
               : t(`actor.${e.actor}`)}>
-            <span className="break-words">
+            <span className="truncate">
               {sessionLabel(sessionName, e.sessionId) || t(`actor.${e.actor}`)}
             </span>
           </Badge>

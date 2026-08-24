@@ -153,12 +153,12 @@ export function Feed ({
             {sessions.map(id => (
               <Button key={id} size="sm"
                 variant={sessionId === id ? 'secondary' : 'ghost'}
-                className={cn('h-auto max-w-60 px-1.5 py-1 text-left text-xs leading-tight break-words whitespace-normal', tones.get(id))}
+                className={cn('h-7 max-w-60 px-1.5 text-xs', tones.get(id))}
                 title={sessionNames?.get(id)
                   ? t('feed.sessionChip', { id, name: sessionNames.get(id) as string })
                   : t('feed.sessionChipUnnamed', { id })}
                 onClick={() => setSessionId(cur => (cur === id ? null : id))}>
-                <span className="break-words">
+                <span className="truncate">
                   {/* The name if Claude Code has chosen one, the id until then.
                       A young session is unnamed for its first minute. */}
                   {sessionNames?.get(id) ?? shortSession(id)}
