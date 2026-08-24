@@ -54,3 +54,37 @@ test('every lane has a tone, and the spine is not one of the columns', () => {
   assert.equal(LANES.includes('spine' as never), false, 'the spine spans, it does not sit in a column')
   assert.ok(LANE_TONE.spine)
 })
+
+test('every mainstream test convention is recognised, not just the JS ones', () => {
+  // The first rule knew only .test./.spec./tests/ and passed here by luck: this
+  // repo's python tests happen to sit under tests/. Against the wider tree it
+  // filed 18 real test files as work.
+  for (const p of [
+    'apps/foo/test_runner.py',        // pytest, outside a tests dir
+    '__tools/apr/test_apr_isolation.py',
+    'pkg/handler_test.go',            // go
+    'lib/user_spec.rb',               // rspec by suffix
+    'spec/models/user_spec.rb',       // rspec by directory
+    'src/UserTest.java',              // junit
+    'src/UserTest.kt',
+    'web/src/thing_test.ts'
+  ]) assert.equal(laneOf(p), 'test', p)
+})
+
+test('"test" as a substring never makes something a test', () => {
+  // Anchored to path segments and extensions, never a bare substring.
+  assert.equal(laneOf('src/latest/index.ts'), 'work', 'latest/ is not tests/')
+  assert.equal(laneOf('web/src/features/contest.ts'), 'work')
+  assert.equal(laneOf('server/protest.js'), 'work')
+})
+
+test('specs/ is planning but spec/ is rspec — singular and plural differ', () => {
+  // Plural is almost always written specifications; singular is a test suite.
+  assert.equal(laneOf('specs/dissolve-deploy-to-store/listing.md'), 'planning')
+  assert.equal(laneOf('spec/models/user_spec.rb'), 'test')
+})
+
+test('a document about testing is planning, not a test', () => {
+  assert.equal(laneOf('docs/testing-doctrine.md'), 'planning')
+  assert.equal(laneOf('__documentation/test-scenarios.md'), 'planning')
+})

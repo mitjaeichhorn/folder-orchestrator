@@ -23,8 +23,30 @@
 export type Lane = 'planning' | 'work' | 'test' | 'spine'
 export const LANES: readonly Lane[] = ['planning', 'work', 'test'] as const
 
-/** A test: by directory, by filename convention, or by pytest's conftest. */
-const TEST_RE = /\.test\.|\.spec\.|(^|\/)__tests__\/|(^|\/)tests?\/|(^|\/)conftest\./i
+/**
+ * A test, by directory or by any of the mainstream filename conventions.
+ *
+ * The first version only knew `.test.`, `.spec.`, `__tests__/`, `tests/` and
+ * `conftest`. That passed on this repo purely because its python tests happen to
+ * live under `tests/` — measured against the wider tree it filed 18 real test
+ * files as `work`, and it missed pytest's `test_*.py`, Go's `*_test.go`,
+ * RSpec's `spec/` and `*_spec.rb`, and JUnit's `*Test.java` outright.
+ *
+ * Two deliberate exclusions. `spec/` is matched but `specs/` is not: singular is
+ * RSpec, plural is almost always written specifications, which belong to
+ * planning. And every convention is anchored to a path segment or an extension,
+ * never a bare substring, so `latest/index.ts`, `contest.ts` and
+ * `testing-doctrine.md` stay where they belong.
+ */
+const TEST_RE = new RegExp([
+  '\\.test\\.', '\\.spec\\.',                    // foo.test.ts, foo.spec.js
+  '(^|/)__tests__/', '(^|/)tests?/', '(^|/)spec/',   // by directory (spec, not specs)
+  '(^|/)conftest\\.',                                // pytest fixtures
+  '(^|/)test_[^/]*\\.(py|rb)$',                      // pytest / ruby: test_foo.py
+  '_test\\.(py|go|rb|ts|tsx|js|jsx)$',               // go and friends: foo_test.go
+  '_spec\\.(rb|ts|js)$',                             // rspec: foo_spec.rb
+  '[^/]*Test\\.(java|kt|cs|scala)$'                  // junit: FooTest.java
+].join('|'), 'i')
 
 /** Written for humans to read: plans, epics, specs, docs. */
 const PLANNING_RE = /(^|\/)(__plan|__documentation|docs?|plans?|specs?)\/|\.(md|markdown|mdown|mkd)$/i

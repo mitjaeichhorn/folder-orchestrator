@@ -248,6 +248,15 @@ are noise — ignore unknown types silently, the format changes without notice.
   to one clock. A design that put them in a fourth column, or dropped them, would hide half the
   session. Measured lane switching between consecutive sided events is 22% here and 10% on the
   larger project, which is why the view reads as blocks rather than confetti.
+- **The test lane must know more than `.test.`.** The first rule knew only the JS conventions plus
+  `tests/`, and passed on this repo purely because its python tests happen to live under `tests/`.
+  Measured against the wider tree it filed **18 real test files as work** and missed pytest's
+  `test_*.py`, Go's `*_test.go`, RSpec's `spec/` and `*_spec.rb`, and JUnit's `*Test.java`. Note
+  what that near-miss looked like: the observed percentages barely moved after the fix, because
+  those files were dormant during the sample — a broken rule can look correct while nobody touches
+  the files it gets wrong. `spec/` matches but `specs/` does not: singular is RSpec, plural is
+  written specifications. Every pattern is anchored to a path segment or an extension, never a bare
+  substring, so `latest/`, `contest.ts` and `testing-doctrine.md` stay put.
 - **Lane classification is the first thing here that INTERPRETS rather than reports.** "This file
   is planning" is a convention, not an observation — unlike every other label in this app, which
   joins one observation to another. The rules are therefore small, ordered and in one file:
