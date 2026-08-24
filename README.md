@@ -29,8 +29,9 @@ macOS, localhost, one operator. No LLM anywhere in it.
 
 ![Folder Orchestrator in use](docs/demo.gif)
 
-*Live feed, hover-to-locate a file in the project tree, every file ranked by last change, and a
-markdown document rendered on click. Recorded against this repository while it was being written.*
+*Real edits landing live, nested under the tool call that was running when they arrived. Then all
+three views — Timeline, By topic, By file — and a markdown document rendered on click. Recorded
+against this repository, with actual file edits driving it.*
 
 ---
 
@@ -202,6 +203,20 @@ Then open <http://127.0.0.1:4000> and add a folder. `ORCH_PORT` overrides the po
 ```bash
 npm test          # server + web
 ```
+
+## Documentation
+
+| | |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | The pipeline end to end — watcher, transcripts, bus, SSE, frontend |
+| [docs/data-model.md](docs/data-model.md) | The Event contract, the SQLite schema, and the invariants both must hold |
+| [docs/api.md](docs/api.md) | Every HTTP route and every SSE frame |
+| [docs/operations.md](docs/operations.md) | Environment variables, logs, retention, troubleshooting |
+| [docs/development.md](docs/development.md) | Tests, how each constraint is enforced, where to add code |
+
+[north-star.md](north-star.md) holds the product intent and the non-goals;
+[CLAUDE.md](CLAUDE.md) holds the gotcha list, each entry recording the measurement behind a
+decision rather than just the decision.
 
 ## Things that were harder than they looked
 
