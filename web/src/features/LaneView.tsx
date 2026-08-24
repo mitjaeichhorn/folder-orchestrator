@@ -14,8 +14,14 @@ import { t, fmtTime, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /**
- * Planning · work · test as tiles, on one clock, with time running DOWNWARD into
- * the present: new work arrives at the bottom and pushes everything up.
+ * Planning · work · test as tiles, on one clock, newest at the top like every
+ * other view here.
+ *
+ * Time hangs DOWNWARD from each tile: the connector under a tile is the wait
+ * that preceded it, measured back to the previous tile in the same lane, which
+ * sits below it. So a tall connector under a tile means that tile arrived long
+ * after the lane's last activity — you read the tile, then read down to see how
+ * long it took to get there.
  *
  * The tile and the time are separate elements on purpose. While they were one
  * box, the tile's minimum readable height was also the floor on expressible
@@ -35,9 +41,10 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
   sessionTones?: Map<string, string>
   sessionNames?: Map<string, string>
 }) {
-  // the feed hands rows newest-first; this view reads into the present
+  // laneRows measures each gap against the previous tile in the same lane, so it
+  // needs oldest-first; the display is then flipped back to newest-first.
   const asc = [...events].reverse()
-  const rows = laneRows(asc as never)
+  const rows = laneRows(asc as never).reverse()
   const profile = laneProfile(events)
 
   // Tick only while something is in flight, matching the feed: an idle view must
@@ -51,23 +58,25 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
   }, [anyRunning])
   const open = openGaps(asc as never, now)
 
-  // Pinned to the BOTTOM, not the top — the present is the floor here.
+  // Pinned to the top, the same anchor as the feed: newest work arrives there.
   const viewport = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
   useEffect(() => {
     const el = viewport.current
-    if (el && pinned.current) el.scrollTop = el.scrollHeight
+    if (el && pinned.current) el.scrollTop = 0
   }, [rows.length])
   const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget
-    pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+    pinned.current = e.currentTarget.scrollTop <= 4
   }
 
   if (events.length === 0) {
     return <p className="text-muted-foreground p-8 text-center text-sm">{t('feed.empty')}</p>
   }
 
-  /** The wait before a tile. Its own element, so one second is still legible. */
+  /**
+   * The wait that preceded a tile, hanging below it toward the older tile it is
+   * measured against. Its own element, so one second is still legible.
+   */
   const Connector = ({ ms, live }: { ms: number | null; live?: boolean }) => {
     if (ms === null) return null
     const h = gapPx(ms)
@@ -140,6 +149,17 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
       </div>
 
       <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        {/* Now is the ceiling: each lane opens with the silence since it last
+            did anything, still growing. Work landing tiles while Test's opener
+            climbs past ten minutes is the thing worth watching. */}
+        <div className="grid grid-cols-3 items-start gap-x-2">
+          {LANES.map(lane => (
+            <div key={lane} className="min-w-0">
+              {open[lane] !== undefined && <Connector ms={open[lane] as number} live />}
+            </div>
+          ))}
+        </div>
+
         {rows.map((r, i) => r.spine
           ? (
             // Full width: the shared clock, and about half of all events
@@ -168,26 +188,17 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
             </div>
           )
           : (
-            <div key={`r${i}`} className="grid grid-cols-3 items-end gap-x-2">
+            <div key={`r${i}`} className="grid grid-cols-3 items-start gap-x-2">
               {LANES.map(lane => {
                 const cell = r.cells[lane]
                 return (
                   <div key={lane} className="min-w-0">
-                    {cell ? <><Connector ms={cell.gapMs} /><Tile cell={cell} /></> : null}
+                    {cell ? <><Tile cell={cell} /><Connector ms={cell.gapMs} /></> : null}
                   </div>
                 )
               })}
             </div>
           ))}
-
-        {/* The open connectors: how long each lane has been silent, still growing. */}
-        <div className="grid grid-cols-3 gap-x-2">
-          {LANES.map(lane => (
-            <div key={lane} className="min-w-0">
-              {open[lane] !== undefined && <Connector ms={open[lane] as number} live />}
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )

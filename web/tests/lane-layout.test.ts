@@ -83,3 +83,31 @@ test('an open gap is never negative if the clock lags the newest event', () => {
   const g = openGaps([ev(9000, 'server/a.js')], 8000)
   assert.equal(g.work, 0)
 })
+
+test('out-of-order input is sorted, not trusted', () => {
+  // Arrival order is not timestamp order: a transcript-derived tool event can be
+  // tailed after a filesystem event that happened before it. Reversing an
+  // unsorted array does not sort it — this produced 3 inversions in 100 tiles.
+  const rows = laneRows([
+    ev(3000, 'server/c.js', 3),
+    ev(1000, 'server/a.js', 1),
+    ev(2000, 'server/b.js', 2)
+  ])
+  assert.deepEqual(rows.map(r => r.ts), [1000, 2000, 3000])
+  assert.equal(rows[0].cells.work?.gapMs, null)
+  assert.equal(rows[1].cells.work?.gapMs, 1000)
+  assert.equal(rows[2].cells.work?.gapMs, 1000)
+})
+
+test('no gap can come out negative', () => {
+  const rows = laneRows([ev(9000, 'server/b.js', 2), ev(1000, 'server/a.js', 1)])
+  for (const r of rows) {
+    const g = r.cells.work?.gapMs
+    if (g !== null && g !== undefined) assert.ok(g >= 0, `gap ${g} must not be negative`)
+  }
+})
+
+test('open gaps use the newest event in a lane whatever order it arrived in', () => {
+  const g = openGaps([ev(5000, 'server/b.js', 2), ev(1000, 'server/a.js', 1)], 6000)
+  assert.equal(g.work, 1000, 'measured from 5000, not from whichever came last in the array')
+})

@@ -248,11 +248,12 @@ are noise — ignore unknown types silently, the format changes without notice.
   connector owns duration, so the scale starts at one second. The connector measures back to the
   previous tile IN ITS OWN LANE, never to the row above: Work landing every few seconds while Test
   climbs past ten minutes is the picture, and a per-row gap would print one number three times.
-- **The lane view runs the other way: newest at the BOTTOM.** Time reads downward into the present,
-  so new work arrives at the floor and pushes everything up, and each lane ends in an open
-  connector still growing — the silence since that lane last did anything. Newest-at-top cannot
-  show that; the growing edge would be off the top of the list. Consequence: this view pins to the
-  bottom while every other view pins to the top.
+- **Time hangs DOWNWARD from each tile, newest still on top.** The connector under a tile is the
+  wait that preceded it, measured to the previous tile in the same lane, which sits below it — read
+  the tile, then read down to see how long it took to arrive. `laneRows` still computes gaps
+  oldest-first because a gap is only definable against a predecessor; the row list is reversed for
+  display. Now is the CEILING, so each lane opens with the silence since it last did anything,
+  still growing. Same anchor as every other view: pinned to the top.
 - **Same-millisecond events in one lane collapse to a `×n` tile, for a mechanical reason.**
   `watcher.js` stamps `ts` when its 50ms debounce FLUSHES, so paths changed by one operation are
   written with one identical timestamp — measured, 6% of events here and 31% on the larger project

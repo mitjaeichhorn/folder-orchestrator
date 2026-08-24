@@ -17,8 +17,13 @@ import { laneOf, LANES, type Lane } from './lanes.ts'
  * collapse into a single tile carrying a count rather than pretending to be
  * separate events 0ms apart.
  *
- * Input must be OLDEST FIRST. The view reads downward into the present, so new
- * work arrives at the bottom and pushes everything up.
+ * Input is sorted here rather than assumed. Arrival order is NOT timestamp
+ * order: a tool event derived from the transcript can be tailed after a
+ * filesystem event that happened before it, and reversing an unsorted array
+ * does not sort it. Measured before this sort existed: 3 inversions in 100
+ * tiles, each a second wide — small enough to look like nothing and large
+ * enough to put a tile above one that preceded it, and to make its gap
+ * negative. Ties break on `id`, which is insertion order.
  */
 
 export interface LaneTile {
@@ -47,7 +52,8 @@ export interface LaneEvent {
   detail?: Record<string, unknown>
 }
 
-export function laneRows (eventsAsc: LaneEvent[]): LaneRow[] {
+export function laneRows (events: LaneEvent[]): LaneRow[] {
+  const eventsAsc = [...events].sort((a, b) => a.ts - b.ts || (a.id ?? 0) - (b.id ?? 0))
   const rows: LaneRow[] = []
   const lastInLane: Partial<Record<Lane, number>> = {}
 
@@ -98,11 +104,12 @@ export function laneRows (eventsAsc: LaneEvent[]): LaneRow[] {
  * Null for a lane that has never produced anything — there is no elapsed time
  * since an event that never happened.
  */
-export function openGaps (eventsAsc: LaneEvent[], now: number): Partial<Record<Lane, number>> {
+export function openGaps (events: LaneEvent[], now: number): Partial<Record<Lane, number>> {
   const last: Partial<Record<Lane, number>> = {}
-  for (const ev of eventsAsc) {
+  for (const ev of events) {
     const lane = laneOf(ev.path)
-    if (lane !== 'spine') last[lane as Lane] = ev.ts
+    // max, not last-seen: the input order is not guaranteed to be chronological
+    if (lane !== 'spine' && ev.ts > (last[lane as Lane] ?? -Infinity)) last[lane as Lane] = ev.ts
   }
   const out: Partial<Record<Lane, number>> = {}
   for (const lane of LANES) {
