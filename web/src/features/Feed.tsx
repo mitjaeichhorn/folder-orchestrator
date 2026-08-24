@@ -10,6 +10,8 @@ import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './col
 import { deletedPaths } from './churn'
 import { sessionTones, sessionsIn, isMultiSession, shortSession } from './session-color'
 import { parseTool } from './tool-name'
+import { recurring } from './entities'
+import { rowText } from './event-view'
 import { FeedRow } from './FeedRow'
 import { FileList } from './FileList'
 import { KindGlyph } from './KindGlyph'
@@ -84,6 +86,9 @@ export function Feed ({
   const rows = useMemo(() => nestByCall(flatRows), [flatRows])
 
   const rowGaps = useMemo(() => gaps(rows.map(e => e.ts)), [rows])
+  // Scoped to what is on screen, deliberately: a name is worth marking because it
+  // recurs among the rows the operator is reading, not across the whole history.
+  const marks = useMemo(() => recurring(flatRows.map(rowText)), [flatRows])
   // do not request a thumbnail for a file we have already seen deleted
   const gone = useMemo(() => deletedPaths(flatRows), [flatRows])
 
@@ -206,7 +211,7 @@ export function Feed ({
                 <col className="w-24" />
                 <col className="w-6" />
                 <col />
-                <col className="w-16" />
+                <col className="w-32" />
                 {/* table-fixed takes widths from here, not from the <td> — widening
                     the cell alone leaves it at the colgroup's width */}
                 <col className="w-24" />
@@ -245,7 +250,8 @@ export function Feed ({
                     </tr>
                   )}
                   <FeedRow
-                    e={e} gap={rowGaps[i]} now={now} depth={0}
+                    e={e} gap={rowGaps[i]} now={now} depth={0} marks={marks}
+                    ditto={rows[i - 1]?.tool === e.tool}
                     folderId={folderId} selected={selected} onSelect={onSelect}
                     running={running} onZoom={setZoom} gone={gone} lines={lines}
                     sessionTone={multi ? tones.get(e.sessionId ?? '') : undefined}
@@ -255,7 +261,7 @@ export function Feed ({
                     onToggle={() => toggleCall(String(e.id))} />
                   {!collapsedCalls.has(String(e.id)) && e.children?.map(c => (
                     <FeedRow key={c.id ?? `${c.ts}-${c.path}`}
-                      e={c} gap={0} now={now} depth={1}
+                      e={c} gap={0} now={now} depth={1} marks={marks}
                       folderId={folderId} selected={selected} onSelect={onSelect}
                       running={running} onZoom={setZoom} gone={gone} lines={lines}
                       sessionTone={multi ? tones.get(c.sessionId ?? '') : undefined}

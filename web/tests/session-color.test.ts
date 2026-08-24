@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  SESSION_TONES, shortSession, sessionTones, sessionsIn, isMultiSession
+  SESSION_TONES, shortSession, sessionTones, sessionsIn, isMultiSession, sessionLabel
 } from '../src/features/session-color.ts'
 
 test('three concurrent sessions get three distinct tones', () => {
@@ -52,4 +52,17 @@ test('the short label is stable and safe on missing ids', () => {
   assert.equal(shortSession(null), '')
   assert.equal(shortSession(undefined), '')
   assert.equal(shortSession(''), '')
+})
+
+test('the pill says the name when there is one, the short id until then', () => {
+  assert.equal(sessionLabel('Formatting proposal', '6b6ac5bb-f24b'), 'Formatting proposal')
+  assert.equal(sessionLabel(undefined, '6b6ac5bb-f24b'), '6b6a')
+  assert.equal(sessionLabel('   ', '6b6ac5bb-f24b'), '6b6a', 'whitespace is not a name')
+})
+
+test('with neither a name nor a session the label is empty, so the caller can fall back', () => {
+  // A filesystem event with no session in flight has no agent to name — the row
+  // falls back to the actor word rather than printing an empty pill.
+  assert.equal(sessionLabel(undefined, null), '')
+  assert.equal(sessionLabel('', undefined), '')
 })

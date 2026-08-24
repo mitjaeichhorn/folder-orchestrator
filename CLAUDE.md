@@ -60,6 +60,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   never in the UI.
 - **Editors fire event storms.** One save can produce several events (atomic write = temp file +
   rename). Debounce per path (~50ms) at the source.
+- **The row's pill names the AGENT, and its FORM carries the attribution.** It used to read
+  "claude" or "during", which was nearly free of information — a tool row is Claude by definition —
+  while *which* of several agents did it was shown nowhere. The pill now says the session's name,
+  and the distinction the old label carried survives as its shape: solid for a hard path join,
+  outline for co-occurrence. A row with no session at all falls back to the actor word rather than
+  rendering an empty pill. The column is `w-32`, set in the `<colgroup>` — widening the `<td>`
+  alone does nothing under `table-fixed`.
 - **Several agents work in one repo, and the feed used to read as one stream.** Measured: three
   concurrent sessions on this project inside an hour, four within a day. Every tool event already
   carried `session_id` and nothing showed it. The chip's colour is assigned by SORTED ORDER, never

@@ -7,9 +7,10 @@ import { KindGlyph } from './KindGlyph'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { isFree, FREE_ROW_CLASS } from './cost'
-import { shortSession } from './session-color'
+import { sessionLabel } from './session-color'
 import { LineBadge } from './LineBadge'
 import { gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
+import { Marked } from './Marked'
 import type { NestedEvent } from './collapse'
 import { t, fmtTime } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -21,7 +22,8 @@ import { cn } from '@/lib/utils'
  */
 export function FeedRow ({
   e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
-  onLocate, locatable, expanded, onToggle, lines, sessionTone, sessionName
+  onLocate, locatable, expanded, onToggle, lines, sessionTone, sessionName,
+  marks = [], ditto
 }: {
   e: NestedEvent
   gap: number
@@ -41,6 +43,10 @@ export function FeedRow ({
   /** Set only when more than one agent is present — otherwise it is noise. */
   sessionTone?: string
   sessionName?: string
+  /** Names recurring across the rows on screen, longest first. */
+  marks?: string[]
+  /** The row above ran the same tool. */
+  ditto?: boolean
 }) {
   const kids = e.children?.length ?? 0
   // a burst points at its shared directory; everything else at its own path
@@ -90,18 +96,7 @@ export function FeedRow ({
             </button>
           )}
 
-          {/* Which agent. First in the row because with several sessions running
-              it is the thing you scan for; absent entirely when only one is. */}
-          {sessionTone && e.sessionId && (
-            <span className={cn('shrink-0 font-mono text-[10px] tabular-nums', sessionTone)}
-              title={sessionName
-                ? t('feed.sessionChip', { id: e.sessionId, name: sessionName })
-                : t('feed.sessionChipUnnamed', { id: e.sessionId })}>
-              {shortSession(e.sessionId)}
-            </span>
-          )}
-
-          <ToolLabel tool={e.tool} className="shrink-0" />
+          <ToolLabel tool={e.tool} className="shrink-0" ditto={ditto} />
 
           {isRunning(e)
             ? <span className={cn('shrink-0 font-mono text-[10px] tabular-nums',
@@ -131,7 +126,10 @@ export function FeedRow ({
             e.kind === 'prompt' ? 'break-words whitespace-pre-wrap' : 'truncate',
             isAuthored(e)
               ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
-              : 'font-mono',
+              // A raw command is the footnote to the written line above it: when
+              // Claude Code wrote a description, THAT is the row's meaning, and
+              // equal weight let fourteen shell strings drown two sentences.
+              : cn('font-mono', e.kind === 'tool' && !e.path && 'text-muted-foreground'),
             e.path && running?.has(e.path) && 'orch-pulse-soft')}>
             {e.burst
               ? <span className="text-muted-foreground/60">
@@ -140,7 +138,7 @@ export function FeedRow ({
                 </span>
               : e.path
                 ? <FilePath path={rowText(e)} />
-                : rowText(e)}
+                : <Marked text={rowText(e)} marks={marks} />}
           </span>
 
           {/* Not on a burst: it stands for many files, so one file's length says
@@ -158,12 +156,25 @@ export function FeedRow ({
         </div>
       </td>
 
-      <td className="w-16 py-1 pr-2 text-right align-top">
-        {e.actor === 'claude' && (
-          <Badge variant="secondary" className="text-violet-300">{t('actor.claude')}</Badge>
-        )}
-        {e.actor === 'during-claude' && (
-          <Badge variant="outline" className="text-violet-300/70">{t('actor.during-claude')}</Badge>
+      <td className="w-32 py-1 pr-2 text-right align-top">
+        {/* Which agent did this. Attribution strength survives as the pill's
+            FORM — solid for a hard path join, outline for co-occurrence — so
+            replacing the old "claude"/"during" text loses nothing. */}
+        {(e.actor === 'claude' || e.actor === 'during-claude') && (
+          <Badge
+            variant={e.actor === 'claude' ? 'secondary' : 'outline'}
+            className={cn('max-w-full justify-end truncate',
+              sessionTone ?? 'text-violet-300',
+              e.actor === 'during-claude' && 'opacity-80')}
+            title={e.sessionId
+              ? (sessionName
+                  ? t('feed.sessionPill', { name: sessionName, id: e.sessionId, actor: t(`actor.${e.actor}`) })
+                  : t('feed.sessionPillUnnamed', { id: e.sessionId, actor: t(`actor.${e.actor}`) }))
+              : t(`actor.${e.actor}`)}>
+            <span className="truncate">
+              {sessionLabel(sessionName, e.sessionId) || t(`actor.${e.actor}`)}
+            </span>
+          </Badge>
         )}
       </td>
 

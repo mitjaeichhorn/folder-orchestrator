@@ -58,3 +58,20 @@ export function sessionsIn (events: Array<{ sessionId?: string | null; ts: numbe
 
 /** True when more than one agent is present — the only time the chip earns space. */
 export const isMultiSession = (ids: string[]): boolean => ids.length > 1
+
+/**
+ * What the row's pill says: Claude Code's name for the session, or the short id
+ * until it has chosen one.
+ *
+ * The pill replaced a bare "claude"/"during" label. That label was nearly free
+ * of information — a tool row is Claude by definition — while *which* of several
+ * agents did it was not shown anywhere. The attribution strength it used to
+ * carry moves to the pill's form: solid for a hard path join, outline for mere
+ * co-occurrence.
+ */
+export function sessionLabel (name: string | undefined, id: string | null | undefined): string {
+  const n = (name ?? '').trim()
+  if (n) return n
+  const short = shortSession(id)
+  return short || ''
+}

@@ -178,6 +178,8 @@
   "feed.sessions": "Agent",
   "feed.sessionChip": "{name} — Claude Code session {id}",
   "feed.sessionChipUnnamed": "Claude Code session {id} — not named yet",
+  "feed.sessionPill": "{name} · {actor} · session {id}",
+  "feed.sessionPillUnnamed": "{actor} · session {id} — not named yet",
   "feed.callFiles": "{n} files",
   "feed.expandCall": "Show files from this call",
   "feed.collapseCall": "Hide files from this call",
