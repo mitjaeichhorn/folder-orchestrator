@@ -8,6 +8,8 @@ import { isImagePath } from '@shared/glob.js'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { ToolLabel } from './ToolLabel'
+import { recurring } from './entities'
+import { Marked } from './Marked'
 import { KindGlyph } from './KindGlyph'
 import { LineBadge } from './LineBadge'
 import type { OrchEvent } from '@/lib/api'
@@ -39,6 +41,9 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom, lines }: {
       {topics.map(tg => {
         const tKey = `t:${tg.topic}`
         const tOpen = !collapsed.has(tKey)
+        // Per topic, not per view: a name recurring inside ONE task is what ties
+        // that task's rows together, and the group boundary is already drawn.
+        const marks = recurring(tg.files.flatMap(f => f.events.map(rowText)))
         return (
           <div key={tKey} className="border-b">
             <button onClick={() => toggle(tKey)}
@@ -65,7 +70,7 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom, lines }: {
                     {fg.path !== NO_FILE && isImagePath(fg.path) && (
                       <Thumb folderId={folderId} path={fg.path} size={18} onOpen={onZoom} />
                     )}
-                    <span className="min-w-0 flex-1 truncate text-xs">
+                    <span className="min-w-0 flex-1 text-xs break-words [overflow-wrap:anywhere]">
                       {fg.path === NO_FILE
                         ? <span className="text-muted-foreground italic">{t('tree.noFile')}</span>
                         : <FilePath path={fg.path} />}
@@ -98,7 +103,9 @@ export function Tree ({ events, selected, onSelect, folderId, onZoom, lines }: {
                         isAuthored(e)
                           ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
                           : 'font-mono')} title={rowText(e)}>
-                        {fg.path === NO_FILE || e.kind === 'tool' ? rowText(e) : t(`kind.${e.kind}`)}
+                        {fg.path === NO_FILE || e.kind === 'tool'
+                          ? <Marked text={rowText(e)} marks={marks} />
+                          : t(`kind.${e.kind}`)}
                       </span>
                       {e.actor === 'claude' && (
                         <Badge variant="secondary" className="shrink-0 text-violet-300">{t('actor.claude')}</Badge>

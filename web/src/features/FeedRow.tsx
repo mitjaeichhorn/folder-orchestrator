@@ -83,7 +83,7 @@ export function FeedRow ({
       </td>
 
       <td className="max-w-0 py-1 pr-2 align-top">
-        <div className={cn('flex min-w-0 gap-2', isAuthored(e) && e.kind === 'prompt' ? 'items-start' : 'items-center')}
+        <div className={cn('flex min-w-0 gap-2 items-start')}
           style={depth ? { paddingLeft: depth * 18 } : undefined}
           title={e.burst ? e.burst.paths.join('\n') : rowText(e)}>
 
@@ -123,7 +123,9 @@ export function FeedRow ({
             // A prompt is the operator's own words: shown whole, line breaks and
             // all. Everything else stays one line — a wrapped path is three rows
             // of noise, and the full value is in the panel a click away.
-            e.kind === 'prompt' ? 'break-words whitespace-pre-wrap' : 'truncate',
+            // Nothing is cropped: a path wraps rather than ending in an ellipsis,
+            // which hid exactly the tail — the filename — that identifies it.
+            e.kind === 'prompt' ? 'break-words whitespace-pre-wrap' : 'break-words [overflow-wrap:anywhere]',
             isAuthored(e)
               ? (e.kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
               // A raw command is the footnote to the written line above it: when
@@ -156,14 +158,16 @@ export function FeedRow ({
         </div>
       </td>
 
-      <td className="w-32 py-1 pr-2 text-right align-top">
+      <td className="w-48 py-1 pr-2 text-right align-top">
         {/* Which agent did this. Attribution strength survives as the pill's
             FORM — solid for a hard path join, outline for co-occurrence — so
             replacing the old "claude"/"during" text loses nothing. */}
         {(e.actor === 'claude' || e.actor === 'during-claude') && (
           <Badge
             variant={e.actor === 'claude' ? 'secondary' : 'outline'}
-            className={cn('max-w-full justify-end truncate',
+            // h-auto + whitespace-normal override the badge's fixed height and
+            // nowrap: a session name is prose and should wrap, not be cropped
+            className={cn('h-auto max-w-full justify-end text-right leading-tight break-words whitespace-normal',
               sessionTone ?? 'text-violet-300',
               e.actor === 'during-claude' && 'opacity-80')}
             title={e.sessionId
@@ -171,7 +175,7 @@ export function FeedRow ({
                   ? t('feed.sessionPill', { name: sessionName, id: e.sessionId, actor: t(`actor.${e.actor}`) })
                   : t('feed.sessionPillUnnamed', { id: e.sessionId, actor: t(`actor.${e.actor}`) }))
               : t(`actor.${e.actor}`)}>
-            <span className="truncate">
+            <span className="break-words">
               {sessionLabel(sessionName, e.sessionId) || t(`actor.${e.actor}`)}
             </span>
           </Badge>

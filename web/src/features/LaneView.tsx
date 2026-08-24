@@ -109,7 +109,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
           e.actor === 'claude' ? 'border-border' : 'border-dashed border-border/50')}>
         <span className="flex min-w-0 items-center gap-1.5">
           <KindGlyph kind={e.kind} pulse={isRunning(e)} />
-          <span className="min-w-0 flex-1 truncate font-mono text-xs">
+          <span className="min-w-0 flex-1 font-mono text-xs break-words [overflow-wrap:anywhere]">
             {e.path ? <FilePath path={e.path} /> : rowText(e)}
           </span>
           {cell.count > 1 && (
@@ -120,7 +120,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
           {e.sessionId && (
-            <span className={cn('shrink-0 truncate font-mono text-[10px]',
+            <span className={cn('min-w-0 font-mono text-[10px] break-words',
               sessionTones?.get(e.sessionId) ?? 'text-muted-foreground')}>
               {sessionLabel(sessionNames?.get(e.sessionId), e.sessionId)}
             </span>
@@ -142,7 +142,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
     <div className="flex h-full min-h-0 flex-col text-sm">
       <div className="text-muted-foreground bg-background grid shrink-0 grid-cols-3 gap-2 border-b px-3 py-1.5 text-xs">
         {LANES.map(l => (
-          <span key={l} className={cn('truncate', LANE_TONE[l])}>
+          <span key={l} className={cn('break-words', LANE_TONE[l])}>
             {t(`lane.${l}`)} · {fmtNum(profile[l])}
           </span>
         ))}
@@ -170,7 +170,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
               </span>
               <ToolLabel tool={(r.spine as unknown as OrchEvent).tool} className="shrink-0" />
               <button onClick={() => onSelect(r.spine as unknown as OrchEvent)}
-                className={cn('hover:bg-muted/50 min-w-0 flex-1 truncate rounded-sm px-1 text-left text-xs',
+                className={cn('hover:bg-muted/50 min-w-0 flex-1 rounded-sm px-1 text-left text-xs break-words [overflow-wrap:anywhere]',
                   isAuthored(r.spine as unknown as OrchEvent)
                     ? ((r.spine as unknown as OrchEvent).kind === 'tool' ? TOOL_DESC_TONE : AUTHORED_TONE)
                     : 'font-mono',
@@ -179,8 +179,9 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
               </button>
               {r.spine.sessionId && (
                 <Badge variant="outline"
-                  className={cn('max-w-32 shrink-0 truncate', sessionTones?.get(r.spine.sessionId))}>
-                  <span className="truncate">
+                  className={cn('h-auto max-w-48 shrink-0 leading-tight break-words whitespace-normal',
+                    sessionTones?.get(r.spine.sessionId))}>
+                  <span className="break-words">
                     {sessionLabel(sessionNames?.get(r.spine.sessionId), r.spine.sessionId)}
                   </span>
                 </Badge>

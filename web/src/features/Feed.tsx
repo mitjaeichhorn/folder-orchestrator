@@ -153,12 +153,12 @@ export function Feed ({
             {sessions.map(id => (
               <Button key={id} size="sm"
                 variant={sessionId === id ? 'secondary' : 'ghost'}
-                className={cn('h-7 max-w-44 px-1.5 text-xs', tones.get(id))}
+                className={cn('h-auto max-w-60 px-1.5 py-1 text-left text-xs leading-tight break-words whitespace-normal', tones.get(id))}
                 title={sessionNames?.get(id)
                   ? t('feed.sessionChip', { id, name: sessionNames.get(id) as string })
                   : t('feed.sessionChipUnnamed', { id })}
                 onClick={() => setSessionId(cur => (cur === id ? null : id))}>
-                <span className="truncate">
+                <span className="break-words">
                   {/* The name if Claude Code has chosen one, the id until then.
                       A young session is unnamed for its first minute. */}
                   {sessionNames?.get(id) ?? shortSession(id)}
@@ -219,7 +219,7 @@ export function Feed ({
                 <col className="w-24" />
                 <col className="w-6" />
                 <col />
-                <col className="w-32" />
+                <col className="w-48" />
                 {/* table-fixed takes widths from here, not from the <td> — widening
                     the cell alone leaves it at the colgroup's width */}
                 <col className="w-24" />

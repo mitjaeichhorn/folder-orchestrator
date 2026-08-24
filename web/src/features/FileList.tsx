@@ -154,10 +154,10 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
             )}
 
             <span key={`${f.path}:${f.events[0]?.id ?? 0}`}
-              className={cn('min-w-0 flex-1 truncate rounded-sm',
+              className={cn('min-w-0 flex-1 rounded-sm',
                 flashing.has(f.path) && 'orch-flash')}>
               <FilePath path={f.path}
-                className={cn('truncate text-xs', !f.present && 'line-through opacity-50')} />
+                className={cn('text-xs break-words [overflow-wrap:anywhere]', !f.present && 'line-through opacity-50')} />
             </span>
 
             {/* The count is the point: "long" is a judgement, 6,314 is a fact. */}
