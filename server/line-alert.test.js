@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildTree } from './tree.js'
@@ -129,4 +129,33 @@ test('a long python file gets a count in the tree', t => {
     filesOf(buildTree({ id: 'f', path: d }).children).map(n => [n.n, n]))
   assert.equal(byName['big.py'].l, LINE_ALERT_AT + 3, 'python is now counted')
   assert.equal(byName['big.md'].l, undefined, 'markdown still is not')
+})
+
+test('an edit that keeps the byte count identical still recounts', t => {
+  // The cache used to key on path+size alone. Swapping a character, or
+  // rewriting a line to the same length, left the old count served forever.
+  const d = tmp(t)
+  const f = join(d, 'same-size.ts')
+  writeFileSync(f, lines(LINE_ALERT_AT + 5))
+  const first = filesOf(buildTree({ id: 'f', path: d }).children)[0].l
+  assert.equal(first, LINE_ALERT_AT + 5)
+
+  // rewrite with the SAME byte count but fewer newlines
+  const body = readFileSync(f, 'utf8')
+  const sameSize = body.replace(/\n/g, ' ').slice(0, body.length - 1) + '\n'
+  assert.equal(Buffer.byteLength(sameSize), Buffer.byteLength(body), 'the test needs an identical size')
+  utimesSync(f, new Date(), new Date(Date.now() + 5000))   // a later mtime, as an edit would
+  writeFileSync(f, sameSize)
+
+  const second = filesOf(buildTree({ id: 'f', path: d }).children)[0]?.l
+  assert.notEqual(second, first, 'a same-size edit must not return the cached count')
+})
+
+test('an untouched file is served from cache — the walk stays cheap', t => {
+  const d = tmp(t)
+  writeFileSync(join(d, 'stable.ts'), lines(LINE_ALERT_AT + 2))
+  const a = filesOf(buildTree({ id: 'f', path: d }).children)[0].l
+  const b = filesOf(buildTree({ id: 'f', path: d }).children)[0].l
+  assert.equal(a, b)
+  assert.equal(a, LINE_ALERT_AT + 2)
 })

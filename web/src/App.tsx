@@ -24,6 +24,7 @@ import { HeatTree } from '@/features/HeatTree'
 import { runningPaths } from '@/features/timeline'
 import { newestEventByPath } from '@/features/group-by-file'
 import { lineIndex } from '@/features/lines'
+import { useDebounced } from '@/hooks/useDebounced'
 import { treeFiles } from '@/features/churn'
 import { config } from '@/config'
 import { folderFromHash, hashForFolder, pickFolder } from '@/features/url-state'
@@ -50,11 +51,18 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   // tree: a modification never changes which files exist.
   const [treeRows, setTreeRows] = useState<Array<{ p: string; m?: number; l?: number }> | null>(null)
   const [treeError, setTreeError] = useState(false)
-  const structureVersion = useMemo(
+  // Counts MODIFICATIONS as well as structure. The heat tree only needs the
+  // shape, but this fetch also carries line counts, and a file crossing 1,000
+  // lines is a modification — refetching on structure alone left the badge
+  // stale until something happened to be created or deleted.
+  const contentVersion = useMemo(
     () => events.reduce((n, e) =>
-      n + (e.kind === 'created' || e.kind === 'deleted' || e.kind === 'renamed' ? 1 : 0), 0),
+      n + (e.kind === 'created' || e.kind === 'deleted' ||
+           e.kind === 'renamed' || e.kind === 'modified' ? 1 : 0), 0),
     [events]
   )
+  // Debounced, or a build refetches the tree once per file it touches.
+  const treeVersion = useDebounced(contentVersion, 1500)
   useEffect(() => {
     let live = true
     fetch(`${config.apiBase}/api/tree?folder=${encodeURIComponent(folder.id)}`)
@@ -62,7 +70,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
       .then(d => { if (live) { setTreeRows(treeFiles(d.children)); setTreeError(false) } })
       .catch(() => { if (live) setTreeError(true) })
     return () => { live = false }
-  }, [folder.id, structureVersion])
+  }, [folder.id, treeVersion])
   const lines = useMemo(() => lineIndex(treeRows), [treeRows])
 
   // Clicking a file in the heat tree opens the same panel a feed row does, on

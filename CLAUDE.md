@@ -200,6 +200,15 @@ Keep it at this file count. New concerns go into an existing file until it genui
   would have made them unreachable rather than merely unbadged. `isExecutablePath` is what
   separates code from generated bulk: it drops four vendored `base.css` copies and a `uv.lock`
   that are long because they are generated, not because anyone should split them.
+- **The tree fetch that carries LINE COUNTS refetches on modifications too.** The heat tree only
+  needs the shape, so it refetches on created/deleted/renamed — but a file crossing 1,000 lines is a
+  *modification*, and sharing that trigger left the badge stale until something happened to be
+  created or deleted. Debounced 1.5s, or a build refetches once per file it touches; the server's
+  per-file cache means only the changed file is re-read.
+- **The line cache keys on path + size + MTIME.** Size alone looks sufficient and is not: an edit
+  can leave the byte count identical — swapping a character, or rewriting a line to the same length
+  — and a size-only key then serves the old count forever. Pinned by a test that rewrites a file to
+  an identical size and asserts the count changes.
 - **The heat tree refetches only on structural change.** created/deleted/renamed change the
   shape; modified never does. Debounced, or a build refetches the tree hundreds of times.
 - **Markdown from a watched folder is untrusted input to our page.** A watched tree can be any

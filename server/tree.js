@@ -11,12 +11,13 @@ export const MAX_DEPTH = 24
 const MAX_COUNT_BYTES = 4 * 1024 * 1024
 
 /**
- * Line counts, keyed by path + mtime + size.
+ * Line counts, keyed by path + size + mtime.
  *
- * The tree is refetched on every structural change, and re-reading ~1800 files
- * each time is the difference between a 90ms walk and a 320ms one. A file whose
- * mtime and size both match is byte-identical for our purposes, so the count is
- * reused; any real edit changes the mtime and evicts the entry by missing.
+ * The tree is refetched whenever files change, and re-reading ~1800 files each
+ * time is the difference between a 90ms walk and a 320ms one. mtime is in the
+ * key as well as size because an edit can leave the byte count identical —
+ * swapping a character, or rewriting a line to the same length — and a
+ * size-only key would serve the old count forever in exactly that case.
  */
 const lineCache = new Map()
 const MAX_CACHE = 20000
@@ -31,10 +32,10 @@ const MAX_CACHE = 20000
  * counts its binary noise as lines and tops the list, which is what the first
  * measurement did.
  */
-function countLines (abs, rel, size) {
+function countLines (abs, rel, size, mtime) {
   if (!countsForLineAlert(rel)) return null
   if (size < LINE_ALERT_AT || size > MAX_COUNT_BYTES) return null
-  const key = `${rel}\0${size}`
+  const key = `${rel}\0${size}\0${mtime}`
   const hit = lineCache.get(key)
   if (hit !== undefined) return hit
   let lines = null
@@ -93,7 +94,7 @@ export function buildTree (folder) {
         // Only present when we actually measured it. Absent means "not judged"
         // — an exempt extension, a binary, or a file too large to be worth
         // reading — which the client must not confuse with "short".
-        const lines = countLines(childAbs, rel, size)
+        const lines = countLines(childAbs, rel, size, m)
         if (lines !== null) node.l = lines
         out.push(node)
       }

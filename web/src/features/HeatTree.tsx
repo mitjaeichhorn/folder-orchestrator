@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
+import { useDebounced } from '@/hooks/useDebounced'
 import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
@@ -13,15 +14,6 @@ import { t } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /** Coalesce a burst of structural changes into one refetch. */
-function useDebounced<T> (value: T, ms: number): T {
-  const [v, setV] = useState(value)
-  useEffect(() => {
-    const id = setTimeout(() => setV(value), ms)
-    return () => clearTimeout(id)
-  }, [value, ms])
-  return v
-}
-
 interface Node { n: string; p: string; d: 0 | 1; c?: Node[] }
 interface TreeResponse { nodes: number; truncated: boolean; children: Node[] }
 
