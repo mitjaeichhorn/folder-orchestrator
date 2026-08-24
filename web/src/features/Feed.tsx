@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { matchEvent, ALL_KINDS } from '@shared/glob.js'
-import { gaps, gapPx, isRunning, runningFor, isStalled } from './timeline'
+import { gaps, gapPx, fmtGap, isRunning, runningFor, isStalled } from './timeline'
 import { Lightbox } from './Lightbox'
 import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './collapse'
 import { deletedPaths } from './churn'
+import { parseTool } from './tool-name'
 import { FeedRow } from './FeedRow'
 import { FileList } from './FileList'
 import { KindGlyph } from './KindGlyph'
@@ -189,13 +190,21 @@ export function Feed ({
                             marker at the top it runs off the list and there is
                             nothing visible it is counting to. */}
                         <div className="ml-4 flex flex-col justify-end"
+                          title={t('feed.runningHint', { d: fmtGap(runningFor(e.ts, now)) || '0s' })}
                           style={{ height: gapPx(runningFor(e.ts, now)) + 14 }}>
                           <div className="flex items-center gap-1.5 pb-0.5">
                             <span className={cn('-ml-[3px] inline-block size-1.5 shrink-0 rounded-full',
                               isStalled(e.ts, now) ? 'bg-amber-500/70' : 'bg-lime-400 orch-pulse')} />
+                            {/* Name what is running and for how long. A bare "now" left the
+                                empty space above the first row unexplained — it read as an
+                                orphan line rather than as a wait being measured. Short tool
+                                name, the same split ToolLabel uses on the row below. */}
                             <span className={cn('text-[10px]',
                               isStalled(e.ts, now) ? 'text-amber-500/70' : 'text-lime-400/70')}>
-                              {t('feed.nowMarker')}
+                              {t('feed.runningNow', {
+                                tool: parseTool(e.tool)?.name ?? t(`kind.${e.kind}`),
+                                d: fmtGap(runningFor(e.ts, now)) || '0s'
+                              })}
                             </span>
                           </div>
                           <div className={cn('min-h-0 flex-1 border-l border-dashed',

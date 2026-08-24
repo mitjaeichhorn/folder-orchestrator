@@ -54,7 +54,9 @@ export function FeedRow ({
         {/* Only top-level rows carry a gap dash: rowGaps is indexed on the
             top-level array, and a child sits inside its parent's interval. */}
         {depth === 0 && gap > 0 && (
-          <div className="relative ml-1 flex" style={{ height: gapPx(gap) }}>
+          <div className="relative ml-1 flex"
+            title={t(isCapped(gap) ? 'feed.gapCappedHint' : 'feed.gapHint', { d: fmtGap(gap) })}
+            style={{ height: gapPx(gap) }}>
             <div className="border-muted-foreground/60 h-full border-l border-dashed" />
             {(gapPx(gap) >= 14 || isCapped(gap)) && (
               <span className={cn('text-muted-foreground/70 self-center pl-1.5 text-[10px] tabular-nums',
