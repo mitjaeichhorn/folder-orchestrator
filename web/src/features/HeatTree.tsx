@@ -4,6 +4,7 @@ import { config } from '@/config'
 import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
+import { newestEventByPath } from './group-by-file'
 import { heatStyle } from './heat-color'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
@@ -31,7 +32,7 @@ const countNodes = (nodes: Node[]): number =>
 
 const EMPTY_CHAIN: ReadonlySet<string> = new Set<string>()
 
-function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
+function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, onOpenFile }: {
   node: Node
   heat: HeatState
   depth: number
@@ -39,6 +40,9 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
   toggle: (p: string) => void
   running?: Set<string>
   chain?: ReadonlySet<string>
+  /** Paths with an event behind them — the only ones the panel can describe. */
+  openable?: ReadonlySet<string>
+  onOpenFile?: (path: string) => void
 }) {
   const h = heatOf(heat, node.p)
   const isOpen = isOpenWith(closed, chain ?? EMPTY_CHAIN, node.p)
@@ -56,14 +60,24 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
   const justEdited = h >= 1
 
   if (node.d === 0) {
+    const shared = cn('w-full truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
+      justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
+      onChain && LOCATE_CHAIN_CLASS, isTarget && LOCATE_TARGET_CLASS)
+    // Only a file we have an event for can open the panel — the panel describes
+    // an event (diff, actor, duration), and the tree lists every file in the
+    // project including ones we have never seen change. Those stay inert rather
+    // than offering a click that does nothing.
+    if (!onOpenFile || !openable?.has(node.p)) {
+      return (
+        <div key={flashKey} className={shared} style={style} title={node.p}>{node.n}</div>
+      )
+    }
     return (
-      <div key={flashKey}
-        className={cn('truncate rounded-sm py-px font-mono text-[10px] leading-tight',
-          justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
-          onChain && LOCATE_CHAIN_CLASS, isTarget && LOCATE_TARGET_CLASS)}
+      <button key={flashKey} onClick={() => onOpenFile(node.p)}
+        className={cn(shared, 'hover:bg-muted/40 cursor-pointer')}
         style={style} title={node.p}>
         {node.n}
-      </div>
+      </button>
     )
   }
   return (
@@ -79,17 +93,19 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain }: {
         <span className="truncate">{node.n}</span>
       </button>
       {isOpen && node.c?.map(c => (
-        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle} running={running} chain={chain} />
+        <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle}
+          running={running} chain={chain} openable={openable} onOpenFile={onOpenFile} />
       ))}
     </div>
   )
 }
 
-export function HeatTree ({ folderId, events, running, hoverPath }: {
+export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile }: {
   folderId: string
   events: OrchEvent[]
   running?: Set<string>
   hoverPath?: string | null
+  onOpenFile?: (path: string) => void
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null)
   const [closed, setClosed] = useState<Set<string>>(new Set())
@@ -132,6 +148,9 @@ export function HeatTree ({ folderId, events, running, hoverPath }: {
     if (n.has(p)) n.delete(p); else n.add(p)
     return n
   })
+
+  // which paths the panel can actually describe
+  const openable = useMemo(() => new Set(newestEventByPath(events).keys()), [events])
 
   const isActive = (p: string) => hasHeat(heat, p)
   // Derived, never stored: `closed` and `activeOnly` are untouched, so leaving the
@@ -179,7 +198,8 @@ export function HeatTree ({ folderId, events, running, hoverPath }: {
             : (
               <>
                 {roots.map(n => (
-                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle} running={running} chain={chain} />
+                  <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle}
+                    running={running} chain={chain} openable={openable} onOpenFile={onOpenFile} />
                 ))}
                 {activeOnly && roots.length === 0 && (
                   <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>

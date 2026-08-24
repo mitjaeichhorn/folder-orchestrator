@@ -22,6 +22,7 @@ import { Rules } from '@/features/Rules'
 import { Usage } from '@/features/Usage'
 import { HeatTree } from '@/features/HeatTree'
 import { runningPaths } from '@/features/timeline'
+import { newestEventByPath } from '@/features/group-by-file'
 import { lineIndex } from '@/features/lines'
 import { treeFiles } from '@/features/churn'
 import { config } from '@/config'
@@ -63,6 +64,15 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
     return () => { live = false }
   }, [folder.id, structureVersion])
   const lines = useMemo(() => lineIndex(treeRows), [treeRows])
+
+  // Clicking a file in the heat tree opens the same panel a feed row does, on
+  // that file's newest event. A file with no event stays inert in the tree
+  // rather than offering a click that opens nothing.
+  const newestByPath = useMemo(() => newestEventByPath(events), [events])
+  const openFromTree = useCallback((path: string) => {
+    const e = newestByPath.get(path)
+    if (e) setSelected(e)
+  }, [newestByPath])
 
   // Name the open project in the tab, so several orchestrator tabs stay
   // tellable apart. Restored on unmount rather than left behind.
@@ -154,7 +164,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           <>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="24" minSize="12" maxSize="50" className="min-h-0 overflow-hidden">
-              <HeatTree folderId={folder.id} events={events} running={running} hoverPath={hoverPath} />
+              <HeatTree folderId={folder.id} events={events} running={running} hoverPath={hoverPath}
+                onOpenFile={openFromTree} />
             </ResizablePanel>
           </>
         )}

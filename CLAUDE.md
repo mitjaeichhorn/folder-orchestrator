@@ -1,6 +1,8 @@
 # prj25-folder-orchestrator
 
 Read [north-star.md](north-star.md) first — it holds the product intent and the non-goals.
+Reference documentation is in [docs/](docs/): [architecture](docs/architecture.md), [data model](docs/data-model.md), [API](docs/api.md), [operations](docs/operations.md), [development](docs/development.md).
+This file is the gotcha list, not the reference — it records what cost time, not what exists.
 
 Monitors selected project folders to full depth and streams every file event, plus Claude Code
 tool activity, to a local dashboard. macOS, localhost, single user.
@@ -121,6 +123,13 @@ Keep it at this file count. New concerns go into an existing file until it genui
   `runningPaths` therefore also includes files the watcher saw change *while* a call was in
   flight. Note what that claims: the change happened during a running command, not that the
   command caused it. Co-occurrence, not causation — the same restraint the attribution join uses.
+- **A heat-tree file opens the panel only if we have an event for it.** The panel describes an
+  *event* — diff, actor, duration — while the tree lists every file in the project, including ones
+  the watcher never saw change. Those render as inert `div`s rather than buttons, so there is no
+  click that silently does nothing: measured with "Active only" off, 30 of 158 leaves are openable.
+  `newestEventByPath` compares `ts` (then `id`) rather than array position, because the stream
+  arrives oldest-first while the feed reverses it — "first match wins" would be right for one
+  caller and quietly wrong for the other.
 - **Only a FILE pulses as "being edited".** Directories emit their own filesystem events — a
   mkdir writes an event whose path IS the directory — so pulsing on path alone lights up a whole
   branch. `shouldPulse` requires `node.d === 0`.

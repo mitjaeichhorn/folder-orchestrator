@@ -86,3 +86,26 @@ export function groupByTopic (events: OrchEvent[]): TopicGroup[] {
 
 /** A file whose changes are all `external` while Claude was active is worth flagging. */
 export const touchedByClaude = (g: FileGroup) => g.actors.has('claude')
+
+/**
+ * The newest event per path — what the detail panel should open when a file is
+ * picked out of the project tree rather than out of the feed.
+ *
+ * Compares `ts` (then `id`) instead of trusting array order. The stream arrives
+ * oldest-first and the feed reverses it into newest-first, so a "first match
+ * wins" rule would be correct for one caller and silently wrong for the other.
+ *
+ * Paths absent from the result have no event behind them: the tree lists every
+ * file in the project, including ones this tool has never seen change.
+ */
+export function newestEventByPath (events: OrchEvent[]): Map<string, OrchEvent> {
+  const out = new Map<string, OrchEvent>()
+  for (const e of events) {
+    if (!e.path) continue
+    const cur = out.get(e.path)
+    if (!cur || e.ts > cur.ts || (e.ts === cur.ts && (e.id ?? 0) > (cur.id ?? 0))) {
+      out.set(e.path, e)
+    }
+  }
+  return out
+}

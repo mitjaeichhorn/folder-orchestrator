@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { groupByFile, groupByTopic, NO_FILE, NO_TOPIC, touchedByClaude } from '../src/features/group-by-file.ts'
+import { groupByFile, groupByTopic, NO_FILE, NO_TOPIC, touchedByClaude, newestEventByPath } from '../src/features/group-by-file.ts'
 
 const ev = (o: any) => ({ id: Math.random(), folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 
@@ -107,4 +107,37 @@ test('no event is lost through two levels of grouping', () => {
   const total = groupByTopic(events)
     .reduce((n, t) => n + t.files.reduce((m, f) => m + f.events.length, 0), 0)
   assert.equal(total, 60)
+})
+
+test('newestEventByPath picks by timestamp, not by array position', () => {
+  // The stream arrives oldest-first; the feed reverses it. A "first match wins"
+  // rule would be right for one caller and silently wrong for the other.
+  const oldest = { id: 1, ts: 100, path: 'a.ts', kind: 'modified' }
+  const newest = { id: 2, ts: 300, path: 'a.ts', kind: 'deleted' }
+  const middle = { id: 3, ts: 200, path: 'a.ts', kind: 'modified' }
+  for (const order of [[oldest, middle, newest], [newest, middle, oldest], [middle, newest, oldest]]) {
+    const m = newestEventByPath(order as never)
+    assert.equal(m.get('a.ts')?.id, 2, 'same answer whatever the order')
+  }
+})
+
+test('ties on timestamp break by id, so a second-resolution clock is not a coin flip', () => {
+  const a = { id: 7, ts: 500, path: 'x.ts', kind: 'modified' }
+  const b = { id: 9, ts: 500, path: 'x.ts', kind: 'modified' }
+  assert.equal(newestEventByPath([a, b] as never).get('x.ts')?.id, 9)
+  assert.equal(newestEventByPath([b, a] as never).get('x.ts')?.id, 9)
+})
+
+test('pathless events are not indexed — a Bash call describes no file', () => {
+  const m = newestEventByPath([
+    { id: 1, ts: 1, path: null, kind: 'tool', tool: 'Bash' },
+    { id: 2, ts: 2, path: 'a.ts', kind: 'modified' }
+  ] as never)
+  assert.deepEqual([...m.keys()], ['a.ts'])
+})
+
+test('a file with no event is absent, which is what keeps it inert in the tree', () => {
+  const m = newestEventByPath([{ id: 1, ts: 1, path: 'seen.ts', kind: 'modified' }] as never)
+  assert.equal(m.has('never-touched.ts'), false)
+  assert.equal(m.has('seen.ts'), true)
 })
