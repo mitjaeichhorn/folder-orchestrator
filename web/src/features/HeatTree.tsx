@@ -3,7 +3,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { config } from '@/config'
 import { useDebounced } from '@/hooks/useDebounced'
 import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
-import { pruneToActive, activeFolders, allFolders, shouldPulse } from './prune-tree'
+import { activeFolders, allFolders, shouldPulse } from './prune-tree'
+import { treeFromPaths } from './tree-from-paths'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
 import { newestEventByPath } from './group-by-file'
 import { heatStyle } from './heat-color'
@@ -150,10 +151,20 @@ export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile }: 
   const chain = useMemo(() => chainOf(hoverPath), [hoverPath])
 
   const roots = useMemo(() => {
-    const all = tree?.children ?? []
-    return activeOnly ? pruneToActive(all as never, revealPredicate(isActive, chain)) : all
-    // keyed on heat.tick rather than heat: pruning a large tree on every render
-    // is the one thing here that could get expensive
+    // "Active only" builds its tree from the stamped paths themselves rather
+    // than pruning the fetched one. /api/tree is capped at MAX_NODES and walks
+    // depth-first in alphabetical order, so on a 16,000-file project the budget
+    // was spent on `.claude` … `admin` and never reached `apps/` or
+    // `import-pipeline/` — every recently changed path fell outside it and the
+    // panel showed "0 paths" while the feed scrolled. Derived from events, the
+    // cap cannot reach this view.
+    if (activeOnly) {
+      const reveal = revealPredicate(isActive, chain)
+      return treeFromPaths([...heat.stamps.keys()].filter(reveal))
+    }
+    return tree?.children ?? []
+    // keyed on heat.tick rather than heat: rebuilding on every render is the one
+    // thing here that could get expensive
   }, [tree, activeOnly, heat.tick, chain])
 
   /** Collapse every folder that has not been touched; leave the active ones open. */

@@ -216,6 +216,15 @@ Keep it at this file count. New concerns go into an existing file until it genui
   can leave the byte count identical — swapping a character, or rewriting a line to the same length
   — and a size-only key then serves the old count forever. Pinned by a test that rewrites a file to
   an identical size and asserts the count changes.
+- **"Active only" builds its tree from the EVENTS, not from `/api/tree`.** The fetched tree is
+  capped at `MAX_NODES` and walked depth-first in alphabetical order, so on a 16,000-file project
+  the budget was spent entirely on `.claude`, `.claudekit`, `__board` … `admin` and never reached
+  `apps/` or `import-pipeline/`. Measured: **all 60** of the most recently changed paths fell
+  outside the truncated tree, so the panel read "0 paths — nothing has changed yet" while the feed
+  scrolled with changes. Raising the cap is not the fix — the full walk is ~175,000 nodes and 12,000
+  already costs 1.2s and 1.6MB. Deriving the active view from the stamped paths makes truncation
+  unreachable: what changed is always what is shown. The fetched tree is still what the full view
+  and the line counts use.
 - **The heat tree refetches only on structural change.** created/deleted/renamed change the
   shape; modified never does. Debounced, or a build refetches the tree hundreds of times.
 - **Markdown from a watched folder is untrusted input to our page.** A watched tree can be any
