@@ -28,7 +28,7 @@ import { useDebounced } from '@/hooks/useDebounced'
 import { treeFiles } from '@/features/churn'
 import { config } from '@/config'
 import { folderFromHash, hashForFolder, pickFolder } from '@/features/url-state'
-import { api, type Folder, type OrchEvent } from '@/lib/api'
+import { api, type Folder, type OrchEvent, type Session } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -79,19 +79,25 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   // Session names come from /api/sessions, not the stream: an `ai-title` record
   // is not an event and has no place in the feed. Refreshed on the same cadence
   // as folder status — a session is named a little after it starts.
-  const [sessionNames, setSessionNames] = useState<Map<string, string>>(new Map())
+  const [sessionsById, setSessionsById] = useState<Map<string, Session>>(new Map())
   useEffect(() => {
     let live = true
     const load = () => api.sessions(folder.id)
       .then(rows => {
         if (!live) return
-        setSessionNames(new Map(rows.filter(r => r.aiTitle).map(r => [r.id, r.aiTitle as string])))
+        setSessionsById(new Map(rows.map(r => [r.id, r])))
       })
       .catch(() => { /* names are a nicety; the hex id always works */ })
     load()
     const t = setInterval(load, STATUS_POLL_MS)
     return () => { live = false; clearInterval(t) }
   }, [folder.id])
+
+  // the feed only needs names; the detail panel wants the whole record
+  const sessionNames = useMemo(
+    () => new Map([...sessionsById].filter(([, r]) => r.aiTitle).map(([id, r]) => [id, r.aiTitle as string])),
+    [sessionsById]
+  )
 
   const newestByPath = useMemo(() => newestEventByPath(events), [events])
   const openFromTree = useCallback((path: string) => {
@@ -204,7 +210,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
             <SheetTitle className="text-xs font-medium">{t('detail.title')}</SheetTitle>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-hidden">
-            {selected && <DetailPanel event={selected} folder={folder} onMute={mute} lines={lines} />}
+            {selected && <DetailPanel event={selected} folder={folder} onMute={mute} lines={lines}
+              session={selected.sessionId ? sessionsById.get(selected.sessionId) : undefined} />}
           </div>
         </SheetContent>
       </Sheet>

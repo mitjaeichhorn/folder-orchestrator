@@ -4,13 +4,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { api, type OrchEvent, type Folder } from '@/lib/api'
+import { api, type OrchEvent, type Folder, type Session } from '@/lib/api'
 import { isImagePath, isMarkdownPath } from '@shared/glob.js'
 import { Thumb } from './Thumb'
 import { LineBadge } from './LineBadge'
 import { Lightbox } from './Lightbox'
 import { toast } from 'sonner'
 import { t, fmtDateTime } from '@/i18n'
+import { fmtGap } from './timeline'
 import { cn } from '@/lib/utils'
 
 // ~100kb of parser, for a file type most rows are not. Kept out of the initial
@@ -34,6 +35,37 @@ function UnifiedDiff ({ text }: { text: string }) {
         )}>{l || ' '}</div>
       ))}
     </div>
+  )
+}
+
+/**
+ * One metadata row. Renders NOTHING when the value is absent — a blank next to a
+ * label reads as "empty", and most of these are simply unknown for older rows.
+ */
+function Meta ({ label, value, mono, wrap, copy }: {
+  label: string
+  value?: string | number | null
+  mono?: boolean
+  wrap?: boolean
+  copy?: (text: string, label: string) => void
+}) {
+  if (value === null || value === undefined || value === '') return null
+  const text = String(value)
+  return (
+    <>
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className={cn('min-w-0 text-xs', mono && 'font-mono',
+        wrap ? 'break-words [overflow-wrap:anywhere]' : 'truncate')}>
+        {text}
+        {copy && (
+          <button onClick={() => copy(text, 'detail.copiedSession')}
+            title={t('detail.copySession')}
+            className="text-muted-foreground/50 hover:text-foreground ml-1.5 align-middle">
+            <Copy className="inline size-3" />
+          </button>
+        )}
+      </dd>
+    </>
   )
 }
 
@@ -70,12 +102,14 @@ function Diff ({ oldS, newS }: { oldS?: { text?: string; truncated?: boolean }; 
   )
 }
 
-export function DetailPanel ({ event, folder, onMute, lines }: {
+export function DetailPanel ({ event, folder, onMute, lines, session }: {
   event: OrchEvent | null
   folder: Folder
   onMute: (pattern: string) => void
   /** Path -> line count, from the tree fetched once in Workspace. */
   lines?: Map<string, number>
+  /** The Claude Code session behind this row, when it had one. */
+  session?: Session
 }) {
   // Its own lightbox: DetailPanel is a sibling of Feed, not a child, so there is
   // no shared state to lift — and two overlays can never both be open anyway.
@@ -176,6 +210,43 @@ export function DetailPanel ({ event, folder, onMute, lines }: {
           </div>
         )}
 
+        {/* Everything we know about the row and the agent behind it. Read from
+            the transcript and the event, never derived: a field we do not have
+            is shown as absent rather than filled in with a plausible value. */}
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-xs uppercase">{t('detail.meta')}</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+            <Meta label={t('detail.metaEvent')} value={event.id != null ? `#${event.id}` : null} />
+            <Meta label={t('detail.metaKind')} value={t(`kind.${event.kind}`)} />
+            <Meta label={t('detail.metaActor')} value={t(`actor.${event.actor}`)} />
+            <Meta label={t('detail.metaTool')} value={event.tool} />
+            <Meta label={t('detail.metaDuration')}
+              value={typeof d.durationMs === 'number' ? fmtGap(d.durationMs) : null} />
+            <Meta label={t('detail.metaState')} value={typeof d.state === 'string' ? d.state : null} />
+            <Meta label={t('detail.metaDuringCall')}
+              value={event.duringToolEventId != null ? `#${event.duringToolEventId}` : null} />
+            <Meta label={t('detail.metaTopic')} value={event.topic} wrap />
+
+            <Meta label={t('detail.metaSession')} value={event.sessionId} mono wrap copy={copy} />
+            <Meta label={t('detail.metaSessionName')} value={session?.aiTitle} wrap />
+            <Meta label={t('detail.metaBranch')} value={session?.gitBranch} mono />
+            <Meta label={t('detail.metaCwd')} value={session?.cwd} mono wrap />
+            <Meta label={t('detail.metaEntrypoint')} value={session?.entrypoint} mono />
+            <Meta label={t('detail.metaVersion')} value={session?.version} mono />
+            <Meta label={t('detail.metaSessionEvents')}
+              value={session ? t('detail.metaEventsFiles', { n: session.events, f: session.files }) : null} />
+            <Meta label={t('detail.metaSessionStarted')}
+              value={session ? fmtDateTime(session.startedAt) : null} />
+            <Meta label={t('detail.metaSessionLast')}
+              value={session ? fmtDateTime(session.lastAt) : null} />
+          </dl>
+          {event.sessionId && !session && (
+            <p className="text-muted-foreground/70 text-xs">{t('detail.metaSessionUnknown')}</p>
+          )}
+        </div>
+
+        <Separator />
+
         {burst && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs uppercase">
@@ -236,7 +307,12 @@ export function DetailPanel ({ event, folder, onMute, lines }: {
           </div>
         )}
 
-        {!isEdit && event.kind !== 'alert' && event.path && (
+        {/* A brand-new markdown file's diff is the whole file with a "+" in front
+            of every line — the same text the preview above already shows, only
+            unrendered. Suppressed for `untracked` alone: a modified file's diff
+            says what changed, which no preview can. */}
+        {!isEdit && event.kind !== 'alert' && event.path &&
+          !(wantsMd && gitDiff?.against === 'untracked') && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs uppercase">
               {t('detail.diff')}
