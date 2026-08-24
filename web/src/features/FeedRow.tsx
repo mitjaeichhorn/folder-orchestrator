@@ -7,6 +7,7 @@ import { KindGlyph } from './KindGlyph'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { isFree, FREE_ROW_CLASS } from './cost'
+import { shortSession } from './session-color'
 import { LineBadge } from './LineBadge'
 import { gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import type { NestedEvent } from './collapse'
@@ -20,7 +21,7 @@ import { cn } from '@/lib/utils'
  */
 export function FeedRow ({
   e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
-  onLocate, locatable, expanded, onToggle, lines
+  onLocate, locatable, expanded, onToggle, lines, sessionTone
 }: {
   e: NestedEvent
   gap: number
@@ -37,6 +38,8 @@ export function FeedRow ({
   expanded?: boolean
   onToggle?: () => void
   lines?: Map<string, number>
+  /** Set only when more than one agent is present — otherwise it is noise. */
+  sessionTone?: string
 }) {
   const kids = e.children?.length ?? 0
   // a burst points at its shared directory; everything else at its own path
@@ -84,6 +87,15 @@ export function FeedRow ({
               className="text-muted-foreground hover:text-foreground shrink-0">
               {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
             </button>
+          )}
+
+          {/* Which agent. First in the row because with several sessions running
+              it is the thing you scan for; absent entirely when only one is. */}
+          {sessionTone && e.sessionId && (
+            <span className={cn('shrink-0 font-mono text-[10px] tabular-nums', sessionTone)}
+              title={t('feed.sessionChip', { id: e.sessionId })}>
+              {shortSession(e.sessionId)}
+            </span>
           )}
 
           <ToolLabel tool={e.tool} className="shrink-0" />

@@ -54,6 +54,18 @@ export function Sessions ({ folderId, live, onPickPath }: {
                   {isRunning(last, now) ? t('session.running') : t('session.ended')} ·{' '}
                   {t('session.lastActivity', { ago: fmtAgo(last, now) })}
                 </p>
+                {/* Branch and directory are what separate two agents editing the
+                    same relative path in different worktrees. Absent for sessions
+                    first seen before this was recorded — shown as nothing rather
+                    than as a guess. */}
+                {(m?.gitBranch || m?.cwd) && (
+                  <p className="text-muted-foreground/70 truncate font-mono text-[10px]"
+                    title={m?.cwd ?? undefined}>
+                    {m?.gitBranch && <span className="text-teal-300">{m.gitBranch}</span>}
+                    {m?.gitBranch && m?.cwd && ' · '}
+                    {m?.cwd && m.cwd.split('/').slice(-2).join('/')}
+                  </p>
+                )}
               </button>
             )
           })}

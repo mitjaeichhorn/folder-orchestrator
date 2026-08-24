@@ -137,12 +137,35 @@ export function updateEventDetail (db, id, patch) {
   return detail
 }
 
+/**
+ * Remember what a session is: its branch, its working directory, how it was
+ * launched. Written only when something actually changes — a transcript line is
+ * parsed per record, and an unconditional upsert would be a write per line.
+ */
+export function upsertSession (db, { id, folderId, gitBranch, cwd, entrypoint, version }, now = Date.now()) {
+  if (!id || !folderId) return false
+  return db.prepare(
+    `INSERT INTO sessions (id, folder_id, git_branch, cwd, entrypoint, version, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       git_branch = COALESCE(excluded.git_branch, sessions.git_branch),
+       cwd        = COALESCE(excluded.cwd,        sessions.cwd),
+       entrypoint = COALESCE(excluded.entrypoint, sessions.entrypoint),
+       version    = COALESCE(excluded.version,    sessions.version),
+       updated_at = excluded.updated_at`
+  ).run(id, folderId, gitBranch ?? null, cwd ?? null, entrypoint ?? null, version ?? null, now).changes > 0
+}
+
 export function sessions (db, folderId, limit = 20) {
   return db.prepare(
-    `SELECT session_id AS id, MIN(ts) AS startedAt, MAX(ts) AS lastAt, COUNT(*) AS events,
-            COUNT(DISTINCT path) AS files
-     FROM events WHERE folder_id = ? AND session_id IS NOT NULL
-     GROUP BY session_id ORDER BY lastAt DESC LIMIT ?`
+    `SELECT e.session_id AS id, MIN(e.ts) AS startedAt, MAX(e.ts) AS lastAt,
+            COUNT(*) AS events, COUNT(DISTINCT e.path) AS files,
+            s.git_branch AS gitBranch, s.cwd AS cwd,
+            s.entrypoint AS entrypoint, s.version AS version
+     FROM events e
+     LEFT JOIN sessions s ON s.id = e.session_id
+     WHERE e.folder_id = ? AND e.session_id IS NOT NULL
+     GROUP BY e.session_id ORDER BY lastAt DESC LIMIT ?`
   ).all(folderId, limit)
 }
 

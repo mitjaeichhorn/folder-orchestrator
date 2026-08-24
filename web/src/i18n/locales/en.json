@@ -175,6 +175,8 @@
   "feed.gapCappedHint": "{d} with no recorded activity — the line is capped, the real wait is longer",
   "actor.during-claude": "during",
   "feed.locate": "Show in project tree",
+  "feed.sessions": "Agent",
+  "feed.sessionChip": "Claude Code session {id}",
   "feed.callFiles": "{n} files",
   "feed.expandCall": "Show files from this call",
   "feed.collapseCall": "Hide files from this call",

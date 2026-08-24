@@ -2,7 +2,7 @@ import { readdirSync, statSync, existsSync, openSync, readSync, closeSync, watch
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import * as bus from './bus.js'
-import { relabelEvent, updateEventDetail, insertUsage, markDuring } from './db.js'
+import { relabelEvent, updateEventDetail, insertUsage, markDuring, upsertSession as dbUpsertSession } from './db.js'
 import { log } from './log.js'
 
 const ROOT = process.env.ORCH_CLAUDE_DIR || join(homedir(), '.claude', 'projects')
@@ -107,11 +107,42 @@ export const topicOf = sessionId => topics.get(sessionId) ?? null
 export const _setTopic = (sessionId, topic) => topics.set(sessionId, topic)
 const TOPIC_MAX = 160
 
+/**
+ * Remember a session's branch, working directory and entrypoint.
+ *
+ * Every record carries these; writing on each would be a database write per
+ * transcript line. So it is memoised on the values themselves and only reaches
+ * sqlite when something actually changes — which for a branch means a checkout,
+ * and for cwd means a different worktree.
+ *
+ * Guarded on `db` because `parseLine` is unit-tested without one.
+ */
+const sessionCtx = new Map()
+
+export function noteSessionContext (o, folderId, sessionId) {
+  if (!sessionId || !folderId) return false
+  const key = `${o.gitBranch ?? ''}|${o.cwd ?? ''}|${o.entrypoint ?? ''}|${o.version ?? ''}`
+  if (key === '|||' || sessionCtx.get(sessionId) === key) return false
+  sessionCtx.set(sessionId, key)
+  if (!db) return false
+  try {
+    dbUpsertSession(db, {
+      id: sessionId, folderId,
+      gitBranch: o.gitBranch, cwd: o.cwd, entrypoint: o.entrypoint, version: o.version
+    })
+    return true
+  } catch { return false }          // context is a nicety; never break the tail
+}
+
+export function _sessionCtxSize () { return sessionCtx.size }
+
 export function parseLine (line, folderId) {
   let o
   try { o = JSON.parse(line) } catch { return { skip: 'bad_json' } }
   const ts = o.timestamp ? Date.parse(o.timestamp) : Date.now()
   const sessionId = o.sessionId || null
+
+  noteSessionContext(o, folderId, sessionId)
 
   const marker = topicFromRecord(o)
   if (marker !== null) {

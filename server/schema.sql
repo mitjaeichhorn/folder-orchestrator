@@ -54,3 +54,17 @@ CREATE TABLE IF NOT EXISTS token_usage (
 );
 
 CREATE INDEX IF NOT EXISTS usage_folder_topic ON token_usage (folder_id, topic);
+
+-- Per-session context, straight off the transcript records. Not derived and not
+-- guessed: gitBranch and cwd are fields Claude Code already writes on every
+-- record, and with worktrees they are what separates two agents editing the
+-- same relative path on different branches.
+CREATE TABLE IF NOT EXISTS sessions (
+  id         TEXT PRIMARY KEY,
+  folder_id  TEXT NOT NULL,
+  git_branch TEXT,
+  cwd        TEXT,
+  entrypoint TEXT,
+  version    TEXT,
+  updated_at INTEGER NOT NULL
+);

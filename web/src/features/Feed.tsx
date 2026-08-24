@@ -8,6 +8,7 @@ import { gaps, gapPx, fmtGap, isRunning, runningFor, isStalled } from './timelin
 import { Lightbox } from './Lightbox'
 import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './collapse'
 import { deletedPaths } from './churn'
+import { sessionTones, sessionsIn, isMultiSession, shortSession } from './session-color'
 import { parseTool } from './tool-name'
 import { FeedRow } from './FeedRow'
 import { FileList } from './FileList'
@@ -46,6 +47,7 @@ export function Feed ({
   const [pathGlob, setPathGlob] = useState('')
   const [windowMs, setWindowMs] = useState(0)
   const [view, setView] = useState<'timeline' | 'tree' | 'files'>('timeline')
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [zoom, setZoom] = useState<string | null>(null)
   const [pinned, setPinned] = useState(true)
   // track what is COLLAPSED, mirroring HeatTree: a call arriving later is open
@@ -61,8 +63,15 @@ export function Feed ({
   const filter = useMemo(() => ({
     kinds: kinds.length ? kinds : undefined,
     pathGlob: pathGlob.trim() || undefined,
-    since: windowMs ? Date.now() - windowMs : undefined
-  }), [kinds, pathGlob, windowMs])
+    since: windowMs ? Date.now() - windowMs : undefined,
+    sessionId: sessionId ?? undefined
+  }), [kinds, pathGlob, windowMs, sessionId])
+
+  // Which agents are present. Derived from the UNFILTERED list, or selecting one
+  // session would remove every other chip and strand the operator inside it.
+  const sessions = useMemo(() => sessionsIn(events), [events])
+  const tones = useMemo(() => sessionTones(sessions), [sessions])
+  const multi = isMultiSession(sessions)
 
   // the ONE predicate — same module the server uses
   const flatRows = useMemo(
@@ -128,6 +137,20 @@ export function Feed ({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        {multi && (
+          <div className="flex items-center gap-1">
+            <span className="text-muted-foreground text-xs">{t('feed.sessions')}</span>
+            {sessions.map(id => (
+              <Button key={id} size="sm"
+                variant={sessionId === id ? 'secondary' : 'ghost'}
+                className={cn('h-7 px-1.5 font-mono text-xs', tones.get(id))}
+                title={t('feed.sessionChip', { id })}
+                onClick={() => setSessionId(cur => (cur === id ? null : id))}>
+                {shortSession(id)}
+              </Button>
+            ))}
+          </div>
+        )}
         <Input className="h-8 w-56" value={pathGlob} placeholder={t('feed.filterPath')}
           onChange={e => setPathGlob(e.target.value)} />
         <Select value={String(windowMs)} onValueChange={v => setWindowMs(Number(v))}>
@@ -217,6 +240,7 @@ export function Feed ({
                     e={e} gap={rowGaps[i]} now={now} depth={0}
                     folderId={folderId} selected={selected} onSelect={onSelect}
                     running={running} onZoom={setZoom} gone={gone} lines={lines}
+                    sessionTone={multi ? tones.get(e.sessionId ?? '') : undefined}
                     onLocate={onLocate} locatable={locatable}
                     expanded={!collapsedCalls.has(String(e.id))}
                     onToggle={() => toggleCall(String(e.id))} />
@@ -225,6 +249,7 @@ export function Feed ({
                       e={c} gap={0} now={now} depth={1}
                       folderId={folderId} selected={selected} onSelect={onSelect}
                       running={running} onZoom={setZoom} gone={gone} lines={lines}
+                      sessionTone={multi ? tones.get(c.sessionId ?? '') : undefined}
                       onLocate={onLocate} locatable={locatable} />
                   ))}
                   </Fragment>

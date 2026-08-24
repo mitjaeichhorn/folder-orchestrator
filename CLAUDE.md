@@ -60,6 +60,18 @@ Keep it at this file count. New concerns go into an existing file until it genui
   never in the UI.
 - **Editors fire event storms.** One save can produce several events (atomic write = temp file +
   rename). Debounce per path (~50ms) at the source.
+- **Several agents work in one repo, and the feed used to read as one stream.** Measured: three
+  concurrent sessions on this project inside an hour, four within a day. Every tool event already
+  carried `session_id` and nothing showed it. The chip's colour is assigned by SORTED ORDER, never
+  by hashing the id — a hash can put two of three sessions in the same colour, which is precisely
+  the failure the chip exists to prevent. The palette (teal, fuchsia, cyan, pink, lime-200) avoids
+  every hue already carrying meaning; past five sessions it wraps, which is documented rather than
+  silent. The chip appears only when more than one session is present.
+- **`gitBranch` and `cwd` come free off the same records and are what separate worktrees.** Two
+  agents can edit the same *relative* path on different branches. Stored in a `sessions` table
+  upserted only when a value actually changes — a transcript line is parsed per record, and an
+  unconditional upsert would be a database write per line. Context only accrues for records tailed
+  after this existed; older sessions show nothing rather than a guess.
 - **Attribution is a join, not a fact.** The filesystem does not say who wrote a file. A row is
   labelled `claude` only when a transcript tool call matches the same path within a short time
   window. When there's no match, say `external` — never guess.

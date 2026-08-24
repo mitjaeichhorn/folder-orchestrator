@@ -23,7 +23,12 @@ export interface OrchEvent {
 
 export interface FolderStatus { folderId: string; watching: boolean; reason: string | null; fileCount: number; eventsPerMin: number }
 export interface Folder { id: string; path: string; name: string; ignore: string[]; enabled: boolean; createdAt: number; status: FolderStatus }
-export interface Session { id: string; startedAt: number; lastAt: number; events: number; files: number }
+export interface Session {
+  id: string; startedAt: number; lastAt: number; events: number; files: number
+  /** Straight off the transcript. Null for sessions seen before we recorded it. */
+  gitBranch?: string | null; cwd?: string | null
+  entrypoint?: string | null; version?: string | null
+}
 export interface TopicUsage {
   topic: string
   messages: number
