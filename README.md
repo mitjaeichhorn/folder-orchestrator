@@ -27,7 +27,10 @@ second one.
 
 macOS, localhost, one operator. No LLM anywhere in it.
 
-![Timeline](docs/screenshots/01-timeline.png)
+![Folder Orchestrator in use](docs/demo.gif)
+
+*Live feed, hover-to-locate a file in the project tree, every file ranked by last change, and a
+markdown document rendered on click. Recorded against this repository while it was being written.*
 
 ---
 
@@ -114,6 +117,8 @@ flight at once the label still stands while the parent pointer is dropped — *"
 stays true with N candidates; *"this call did it"* does not.
 
 ### Three views over the same events
+
+![Timeline](docs/screenshots/01-timeline.png)
 
 **Timeline** — chronological, with vertical dashes measuring the real seconds between rows, so
 waiting is visible as height. Filesystem rows nest under the tool call whose measured interval
