@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
  */
 export function FeedRow ({
   e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
-  onLocate, locatable, expanded, onToggle, lines, sessionTone
+  onLocate, locatable, expanded, onToggle, lines, sessionTone, sessionName
 }: {
   e: NestedEvent
   gap: number
@@ -40,6 +40,7 @@ export function FeedRow ({
   lines?: Map<string, number>
   /** Set only when more than one agent is present — otherwise it is noise. */
   sessionTone?: string
+  sessionName?: string
 }) {
   const kids = e.children?.length ?? 0
   // a burst points at its shared directory; everything else at its own path
@@ -93,7 +94,9 @@ export function FeedRow ({
               it is the thing you scan for; absent entirely when only one is. */}
           {sessionTone && e.sessionId && (
             <span className={cn('shrink-0 font-mono text-[10px] tabular-nums', sessionTone)}
-              title={t('feed.sessionChip', { id: e.sessionId })}>
+              title={sessionName
+                ? t('feed.sessionChip', { id: e.sessionId, name: sessionName })
+                : t('feed.sessionChipUnnamed', { id: e.sessionId })}>
               {shortSession(e.sessionId)}
             </span>
           )}

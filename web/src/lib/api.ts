@@ -28,6 +28,8 @@ export interface Session {
   /** Straight off the transcript. Null for sessions seen before we recorded it. */
   gitBranch?: string | null; cwd?: string | null
   entrypoint?: string | null; version?: string | null
+  /** Claude Code's own name for the session. Null until it picks one. */
+  aiTitle?: string | null
 }
 export interface TopicUsage {
   topic: string

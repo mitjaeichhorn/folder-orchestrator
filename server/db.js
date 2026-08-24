@@ -22,6 +22,10 @@ function migrate (db) {
   if (!cols.includes('during_tool_event_id')) {
     db.exec('ALTER TABLE events ADD COLUMN during_tool_event_id INTEGER')
   }
+  const scols = db.prepare('PRAGMA table_info(sessions)').all().map(c => c.name)
+  if (scols.length && !scols.includes('ai_title')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN ai_title TEXT')
+  }
 }
 
 const rowToFolder = r => r && ({
@@ -142,18 +146,20 @@ export function updateEventDetail (db, id, patch) {
  * launched. Written only when something actually changes — a transcript line is
  * parsed per record, and an unconditional upsert would be a write per line.
  */
-export function upsertSession (db, { id, folderId, gitBranch, cwd, entrypoint, version }, now = Date.now()) {
+export function upsertSession (db, { id, folderId, gitBranch, cwd, entrypoint, version, aiTitle }, now = Date.now()) {
   if (!id || !folderId) return false
   return db.prepare(
-    `INSERT INTO sessions (id, folder_id, git_branch, cwd, entrypoint, version, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO sessions (id, folder_id, git_branch, cwd, entrypoint, version, ai_title, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        git_branch = COALESCE(excluded.git_branch, sessions.git_branch),
        cwd        = COALESCE(excluded.cwd,        sessions.cwd),
        entrypoint = COALESCE(excluded.entrypoint, sessions.entrypoint),
        version    = COALESCE(excluded.version,    sessions.version),
+       ai_title   = COALESCE(excluded.ai_title,   sessions.ai_title),
        updated_at = excluded.updated_at`
-  ).run(id, folderId, gitBranch ?? null, cwd ?? null, entrypoint ?? null, version ?? null, now).changes > 0
+  ).run(id, folderId, gitBranch ?? null, cwd ?? null, entrypoint ?? null, version ?? null,
+        aiTitle ?? null, now).changes > 0
 }
 
 export function sessions (db, folderId, limit = 20) {
@@ -161,7 +167,7 @@ export function sessions (db, folderId, limit = 20) {
     `SELECT e.session_id AS id, MIN(e.ts) AS startedAt, MAX(e.ts) AS lastAt,
             COUNT(*) AS events, COUNT(DISTINCT e.path) AS files,
             s.git_branch AS gitBranch, s.cwd AS cwd,
-            s.entrypoint AS entrypoint, s.version AS version
+            s.entrypoint AS entrypoint, s.version AS version, s.ai_title AS aiTitle
      FROM events e
      LEFT JOIN sessions s ON s.id = e.session_id
      WHERE e.folder_id = ? AND e.session_id IS NOT NULL

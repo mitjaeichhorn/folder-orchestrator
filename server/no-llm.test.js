@@ -71,3 +71,14 @@ test('the topic is transcribed, never shortened by meaning', () => {
   // Check code only — comments legitimately discuss summarisation to forbid it.
   assert.doesNotMatch(stripComments(src), /lastIndexOf\(' '\)|\bsummar/i, 'no meaning-aware trimming')
 })
+
+test('reading a stored title is not generating one', () => {
+  // `aiTitle` is written by a model UPSTREAM, in Claude Code, before this app
+  // opens the file. The distinction this suite protects is reading vs running:
+  // nothing here may call inference, and displaying a field someone else
+  // generated is not calling inference. Same precedent as the Bash description.
+  const src = readFileSync(new URL('./transcripts.js', import.meta.url), 'utf8')
+  assert.match(src, /o\.aiTitle/, 'the title is read from the record')
+  assert.doesNotMatch(src, /summari[sz]e|generateTitle|createCompletion/i,
+    'and never derived here')
+})

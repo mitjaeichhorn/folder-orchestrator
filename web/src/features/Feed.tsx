@@ -28,7 +28,7 @@ const WINDOWS = [
 
 export function Feed ({
   events, evicted, selected, onSelect, folderId, filtersOpen = true, running, onLocate, locatable,
-  treeRows, treeError, lines
+  treeRows, treeError, lines, sessionNames
 }: {
   events: OrchEvent[]
   evicted: number
@@ -42,6 +42,8 @@ export function Feed ({
   treeRows: Array<{ p: string; m?: number; l?: number }> | null
   treeError: boolean
   lines: Map<string, number>
+  /** Claude Code's own name per session, where it has chosen one. */
+  sessionNames?: Map<string, string>
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
@@ -143,10 +145,16 @@ export function Feed ({
             {sessions.map(id => (
               <Button key={id} size="sm"
                 variant={sessionId === id ? 'secondary' : 'ghost'}
-                className={cn('h-7 px-1.5 font-mono text-xs', tones.get(id))}
-                title={t('feed.sessionChip', { id })}
+                className={cn('h-7 max-w-44 px-1.5 text-xs', tones.get(id))}
+                title={sessionNames?.get(id)
+                  ? t('feed.sessionChip', { id, name: sessionNames.get(id) as string })
+                  : t('feed.sessionChipUnnamed', { id })}
                 onClick={() => setSessionId(cur => (cur === id ? null : id))}>
-                {shortSession(id)}
+                <span className="truncate">
+                  {/* The name if Claude Code has chosen one, the id until then.
+                      A young session is unnamed for its first minute. */}
+                  {sessionNames?.get(id) ?? shortSession(id)}
+                </span>
               </Button>
             ))}
           </div>
@@ -241,6 +249,7 @@ export function Feed ({
                     folderId={folderId} selected={selected} onSelect={onSelect}
                     running={running} onZoom={setZoom} gone={gone} lines={lines}
                     sessionTone={multi ? tones.get(e.sessionId ?? '') : undefined}
+                    sessionName={sessionNames?.get(e.sessionId ?? '')}
                     onLocate={onLocate} locatable={locatable}
                     expanded={!collapsedCalls.has(String(e.id))}
                     onToggle={() => toggleCall(String(e.id))} />
@@ -250,6 +259,7 @@ export function Feed ({
                       folderId={folderId} selected={selected} onSelect={onSelect}
                       running={running} onZoom={setZoom} gone={gone} lines={lines}
                       sessionTone={multi ? tones.get(c.sessionId ?? '') : undefined}
+                      sessionName={sessionNames?.get(c.sessionId ?? '')}
                       onLocate={onLocate} locatable={locatable} />
                   ))}
                   </Fragment>

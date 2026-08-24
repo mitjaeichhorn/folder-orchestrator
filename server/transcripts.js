@@ -118,6 +118,7 @@ const TOPIC_MAX = 160
  * Guarded on `db` because `parseLine` is unit-tested without one.
  */
 const sessionCtx = new Map()
+const sessionTitles = new Map()
 
 export function noteSessionContext (o, folderId, sessionId) {
   if (!sessionId || !folderId) return false
@@ -135,6 +136,7 @@ export function noteSessionContext (o, folderId, sessionId) {
 }
 
 export function _sessionCtxSize () { return sessionCtx.size }
+export const sessionTitleOf = id => sessionTitles.get(id) ?? null
 
 export function parseLine (line, folderId) {
   let o
@@ -143,6 +145,19 @@ export function parseLine (line, folderId) {
   const sessionId = o.sessionId || null
 
   noteSessionContext(o, folderId, sessionId)
+
+  // Claude Code names its own sessions. The name is written by a model upstream
+  // and is sitting in the file before we open it — reading it is not inference,
+  // exactly as with the Bash `description` we already display.
+  if (o.type === 'ai-title' && sessionId && o.aiTitle) {
+    if (sessionTitles.get(sessionId) !== o.aiTitle) {
+      sessionTitles.set(sessionId, o.aiTitle)
+      if (db) {
+        try { dbUpsertSession(db, { id: sessionId, folderId, aiTitle: o.aiTitle }) } catch { /* a name is a nicety */ }
+      }
+    }
+    return { skip: 'session_title' }
+  }
 
   const marker = topicFromRecord(o)
   if (marker !== null) {
@@ -398,10 +413,26 @@ export function primeTopics (file, folderId = null) {
   for (const line of text.split('\n')) {
     if (!line) continue
     // cheap pre-filter: most lines are neither, and JSON.parse is the expensive part
-    if (!line.includes('last-prompt') && !line.includes('queued_command') && !line.includes('"usage"')) continue
+    if (!line.includes('last-prompt') && !line.includes('queued_command') &&
+        !line.includes('"usage"') && !line.includes('ai-title')) continue
     let o
     try { o = JSON.parse(line) } catch { continue }
     const sid = o.sessionId || null
+
+    // Session names, recovered the same way and for the same reason as topics:
+    // tailing starts at EOF, and an `ai-title` record is written once in a while,
+    // so without reading back every existing session stays nameless until Claude
+    // Code happens to retitle it.
+    if (o.type === 'ai-title' && sid && o.aiTitle) {
+      if (sessionTitles.get(sid) !== o.aiTitle) {
+        sessionTitles.set(sid, o.aiTitle)
+        if (db && folderId) {
+          try { dbUpsertSession(db, { id: sid, folderId, aiTitle: o.aiTitle }) } catch { /* a name is a nicety */ }
+        }
+      }
+      continue
+    }
+
     const marker = topicFromRecord(o)
     if (marker !== null) {
       const topic = asTopic(marker)

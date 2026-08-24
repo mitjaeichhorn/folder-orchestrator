@@ -68,6 +68,23 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   // Clicking a file in the heat tree opens the same panel a feed row does, on
   // that file's newest event. A file with no event stays inert in the tree
   // rather than offering a click that opens nothing.
+  // Session names come from /api/sessions, not the stream: an `ai-title` record
+  // is not an event and has no place in the feed. Refreshed on the same cadence
+  // as folder status — a session is named a little after it starts.
+  const [sessionNames, setSessionNames] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    let live = true
+    const load = () => api.sessions(folder.id)
+      .then(rows => {
+        if (!live) return
+        setSessionNames(new Map(rows.filter(r => r.aiTitle).map(r => [r.id, r.aiTitle as string])))
+      })
+      .catch(() => { /* names are a nicety; the hex id always works */ })
+    load()
+    const t = setInterval(load, STATUS_POLL_MS)
+    return () => { live = false; clearInterval(t) }
+  }, [folder.id])
+
   const newestByPath = useMemo(() => newestEventByPath(events), [events])
   const openFromTree = useCallback((path: string) => {
     const e = newestByPath.get(path)
@@ -144,7 +161,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
             folderId={folder.id} filtersOpen={filtersOpen} running={running}
             onLocate={setHoverPath} locatable={heatOpen}
-            treeRows={treeRows} treeError={treeError} lines={lines} />
+            treeRows={treeRows} treeError={treeError} lines={lines}
+            sessionNames={sessionNames} />
         </TabsContent>
 
         <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">

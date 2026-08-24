@@ -63,3 +63,25 @@ test('two sessions on different branches stay distinct — the worktree case', t
   assert.notEqual(byId.A.gitBranch, byId.B.gitBranch,
     'same relative path, two branches — which is the whole reason to store cwd and branch')
 })
+
+test('a session carries its Claude Code name, and a rename replaces it', t => {
+  const D = fresh(t)
+  db.upsertSession(D, { id: 'S1', folderId: 'F', aiTitle: 'Unrendered md code' })
+  assert.equal(D.prepare('SELECT ai_title AS n FROM sessions WHERE id=?').get('S1').n, 'Unrendered md code')
+  // a later record carries context but no title — the name must survive it
+  db.upsertSession(D, { id: 'S1', folderId: 'F', gitBranch: 'main' })
+  assert.equal(D.prepare('SELECT ai_title AS n FROM sessions WHERE id=?').get('S1').n, 'Unrendered md code')
+  // Claude Code retitles a session as it goes
+  db.upsertSession(D, { id: 'S1', folderId: 'F', aiTitle: 'Documentation into docs' })
+  assert.equal(D.prepare('SELECT ai_title AS n FROM sessions WHERE id=?').get('S1').n, 'Documentation into docs')
+})
+
+test('sessions() returns the name, null when Claude Code has not chosen one yet', t => {
+  const D = fresh(t)
+  db.insertEvent(D, { folderId: 'F', ts: 10, kind: 'tool', actor: 'claude', sessionId: 'named', tool: 'Bash' })
+  db.insertEvent(D, { folderId: 'F', ts: 11, kind: 'tool', actor: 'claude', sessionId: 'unnamed', tool: 'Bash' })
+  db.upsertSession(D, { id: 'named', folderId: 'F', aiTitle: 'Formatting proposal' })
+  const byId = Object.fromEntries(db.sessions(D, 'F').map(r => [r.id, r]))
+  assert.equal(byId.named.aiTitle, 'Formatting proposal')
+  assert.equal(byId.unnamed.aiTitle, null, 'a young session has no name — shown as none, not guessed')
+})
