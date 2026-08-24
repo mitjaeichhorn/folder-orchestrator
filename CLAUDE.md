@@ -242,6 +242,18 @@ are noise — ignore unknown types silently, the format changes without notice.
   same folder. A hash rather than a path because the server serves index.html for unknown paths —
   a hash never reaches it, so there is nothing to misroute. A URL naming a folder that no longer
   exists falls back to the previous selection, then the first; it never blanks the screen.
+- **The lane view's spine is half the data, not a leftover.** Planning / work / test are columns,
+  but ~half of all events name no file at all — 53% here, 45% on a larger project — because `Bash`,
+  MCP calls and prompts carry no path. Those render FULL WIDTH, which is what ties the three lanes
+  to one clock. A design that put them in a fourth column, or dropped them, would hide half the
+  session. Measured lane switching between consecutive sided events is 22% here and 10% on the
+  larger project, which is why the view reads as blocks rather than confetti.
+- **Lane classification is the first thing here that INTERPRETS rather than reports.** "This file
+  is planning" is a convention, not an observation — unlike every other label in this app, which
+  joins one observation to another. The rules are therefore small, ordered and in one file:
+  `test` is checked before `planning` so a `.md` fixture in a test directory does not inflate the
+  planning lane, and before `work` because a test is work by any other measure. Still zero model:
+  it is path matching, the same machinery the ignore rules use.
 - **The view switch is not a filter.** Timeline / By topic stays in the feed column; the
   collapsible filter area holds the tabs, kind chips, path glob and time window.
 
