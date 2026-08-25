@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FolderTree } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { FilePath } from '../shared/FilePath'
 import { Thumb } from '../shared/Thumb'
@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils'
  */
 export function FeedRow ({
   e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
-  onLocate, locatable, expanded, onToggle, lines, sessionTone, sessionName,
+  expanded, onToggle, lines, sessionTone, sessionName,
   alerts, onOpenAlert,
   marks = [], ditto
 }: {
@@ -38,8 +38,6 @@ export function FeedRow ({
   running?: Set<string>
   onZoom: (path: string) => void
   gone?: ReadonlySet<string>
-  onLocate?: (path: string | null) => void
-  locatable?: boolean
   expanded?: boolean
   onToggle?: () => void
   lines?: Map<string, number>
@@ -54,13 +52,11 @@ export function FeedRow ({
   ditto?: boolean
 }) {
   const kids = e.children?.length ?? 0
-  // a burst points at its shared directory; everything else at its own path
-  const locateTarget = e.burst ? (e.burst.dir || null) : e.path
 
   return (
     <tr
       onClick={() => onSelect(e)}
-      className={cn('group/row hover:bg-muted/50 cursor-pointer',
+      className={cn('hover:bg-muted/50 cursor-pointer',
         isFree(e) && FREE_ROW_CLASS,
         selected?.id === e.id && 'bg-muted')}>
 
@@ -189,31 +185,16 @@ export function FeedRow ({
         )}
       </td>
 
-      <td className="w-24 py-1 pr-3 align-top"
-        onMouseEnter={() => locatable && locateTarget && onLocate?.(locateTarget)}
-        onMouseLeave={() => locatable && onLocate?.(null)}>
-        <div className="flex items-center justify-end gap-1">
-          <span className="text-muted-foreground w-10 text-right font-mono text-xs tabular-nums">
-            {typeof e.detail?.linesAdded === 'number' && (
-              <span className="text-emerald-400">{t('detail.linesAdded', { n: e.detail.linesAdded })}</span>
-            )}
-          </span>
-          {locatable && locateTarget && (
-            // Always visible, dim until approached. Hidden-until-hover made the
-            // feature undiscoverable: there was nothing on screen to aim at.
-            <button
-              onClick={ev => ev.stopPropagation()}
-              onMouseEnter={() => onLocate?.(locateTarget)}
-              onMouseLeave={() => onLocate?.(null)}
-              onFocus={() => onLocate?.(locateTarget)}
-              onBlur={() => onLocate?.(null)}
-              aria-label={t('feed.locate')}
-              title={t('feed.locate')}
-              className="text-muted-foreground/40 hover:text-blue-400 group-hover/row:text-muted-foreground/80 shrink-0 transition-colors">
-              <FolderTree className="size-3.5" />
-            </button>
+      {/* The fifth cell must exist even when empty — a row whose cell count
+          differs from the colgroup arity collapses the whole table's widths.
+          It used to carry a locate button as well; the path itself is the
+          hover target now. */}
+      <td className="w-16 py-1 pr-3 align-top">
+        <span className="text-muted-foreground block text-right font-mono text-xs tabular-nums">
+          {typeof e.detail?.linesAdded === 'number' && (
+            <span className="text-emerald-400">{t('detail.linesAdded', { n: e.detail.linesAdded })}</span>
           )}
-        </div>
+        </span>
       </td>
     </tr>
   )

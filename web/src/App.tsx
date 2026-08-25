@@ -24,6 +24,7 @@ import { HeatTree } from '@/features/heat/HeatTree'
 import { runningPaths } from '@/features/shared/timeline'
 import { newestEventByPath } from '@/features/files/group-by-file'
 import { useAlerts } from '@/features/propositions/use-alerts'
+import { PathHoverProvider } from '@/features/shared/path-hover'
 import { AlertPanel } from '@/features/propositions/AlertPanel'
 import type { Alert } from '@/features/propositions/alerts'
 import { lineIndex } from '@/features/shared/lines'
@@ -148,6 +149,9 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
   }, [folder, onFolderChange])
 
   return (
+    // Hovering a folder or a file anywhere lights that prefix in every other
+    // path on screen, and reveals the same path in the heat tree.
+    <PathHoverProvider onChange={setHoverPath}>
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2">
         <SidebarTrigger className="-ml-1" />
@@ -192,7 +196,6 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         <TabsContent value="activity" className="min-h-0 flex-1 overflow-hidden">
           <Feed events={events} evicted={evicted} selected={selected} onSelect={setSelected}
             folderId={folder.id} filtersOpen={filtersOpen} running={running}
-            onLocate={setHoverPath} locatable={heatOpen}
             treeRows={treeRows} treeError={treeError} lines={lines}
             sessionNames={sessionNames}
             alertsByPath={alertsByPath} onOpenAlert={setOpenAlert} propositions={propositions} />
@@ -251,6 +254,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
         </SheetContent>
       </Sheet>
     </div>
+    </PathHoverProvider>
   )
 }
 

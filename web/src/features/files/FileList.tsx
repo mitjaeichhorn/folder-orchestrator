@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FolderTree } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { groupByFile } from './group-by-file'
@@ -33,12 +32,10 @@ type FileRowLike = { path: string; lines?: number }
  * Deliberately a different question from the heat tree: that shades by recency,
  * this by churn, in a different hue family so the two are never confused.
  */
-export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZoom, tree, error, alertsByPath, onOpenAlert }: {
+export function FileList ({ events, folderId, onSelect, onZoom, tree, error, alertsByPath, onOpenAlert }: {
   events: OrchEvent[]
   folderId: string
   onSelect: (e: OrchEvent) => void
-  onLocate?: (path: string | null) => void
-  locatable?: boolean
   onZoom: (path: string) => void
   /** Fetched once in Workspace and shared — four surfaces want line counts. */
   tree: Array<{ p: string; m?: number; l?: number }> | null
@@ -129,7 +126,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
         return (
           <div key={f.path}
             onClick={() => newest && onSelect(newest)}
-            className={cn('group/file flex items-center gap-3 border-b px-4 py-1.5',
+            className={cn('flex items-center gap-3 border-b px-4 py-1.5',
               newest ? 'hover:bg-muted/50 cursor-pointer' : 'hover:bg-muted/30')}>
 
             <span className="text-muted-foreground w-16 shrink-0 font-mono text-xs tabular-nums">
@@ -181,20 +178,6 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
             <span className="text-muted-foreground/70 w-16 shrink-0 text-right text-xs tabular-nums">
               {fmtAgo(f.lastTs)}
             </span>
-
-            {locatable && f.present && (
-              <button
-                onClick={ev => ev.stopPropagation()}
-                onMouseEnter={() => onLocate?.(f.path)}
-                onMouseLeave={() => onLocate?.(null)}
-                onFocus={() => onLocate?.(f.path)}
-                onBlur={() => onLocate?.(null)}
-                aria-label={t('feed.locate')}
-                title={t('feed.locate')}
-                className="text-muted-foreground/40 hover:text-blue-400 group-hover/file:text-muted-foreground/80 shrink-0 transition-colors">
-                <FolderTree className="size-3.5" />
-              </button>
-            )}
           </div>
         )
       })}

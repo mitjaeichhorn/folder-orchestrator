@@ -199,6 +199,21 @@ Keep it at this file count. New concerns go into an existing file until it genui
   orange -> grey. Note the cost — that ramp and these badges now share a hue family and can be
   on screen together, which the colour rules otherwise forbid. They are separated by column and
   by shape (a pill, never a tree row), not by hue.
+- **The PATH is the locate control; there is no per-row button any more.** Hovering any segment —
+  folder or filename — lights that prefix in every other path on screen and reveals it in the heat
+  tree. The old `FolderTree` button was kept always-visible-but-dim because "hidden-until-hover made
+  the feature undiscoverable, there was nothing on screen to aim at"; that reasoning applied to a
+  14px target and does not survive the whole path becoming one. `FilePath` reads the hovered prefix
+  from a CONTEXT rather than props: it is rendered by six components across four views, several
+  nested two or three levels inside a row or tile, so threading it would be ~15 prop additions to
+  say one thing and every new view would have to remember.
+- **Prefix matching is per SEGMENT, never `startsWith`.** These trees contain `app`,
+  `app__image_generator` and `app__product_data`; a string prefix lights all three when you point at
+  the first. Verified live: hovering `app__image_generator` stops there.
+- **One locate affordance deliberately survives** — the "Show in project tree" button in the
+  proposition panel. It is a considered action in an off-canvas, not row furniture, and it is what
+  keeps `feed.locate`, `chainOf`, `revealPredicate` and the `LOCATE_*` classes reachable from `src`.
+  `LOCATE_ICON_TONE` is now referenced only by tests; both live call sites hardcode the blue.
 - **The heat tree marks a long file with an icon, and its base tier CANNOT be muted.** Same rule
   and same ranking as By file — it calls `showsLineBadge` rather than restating the threshold — but
   the tones are `lineIconTone`, not `lineTone`. Reusing `lineTone` shipped an invisible alert: its

@@ -32,7 +32,7 @@ const WINDOWS = [
 
 
 export function Feed ({
-  events, evicted, selected, onSelect, folderId, filtersOpen = true, running, onLocate, locatable,
+  events, evicted, selected, onSelect, folderId, filtersOpen = true, running,
   treeRows, treeError, lines, sessionNames, alertsByPath, onOpenAlert, propositions
 }: {
   events: OrchEvent[]
@@ -42,8 +42,6 @@ export function Feed ({
   folderId: string
   filtersOpen?: boolean
   running?: Set<string>
-  onLocate?: (path: string | null) => void
-  locatable?: boolean
   treeRows: Array<{ p: string; m?: number; l?: number }> | null
   treeError: boolean
   lines: Map<string, number>
@@ -221,7 +219,7 @@ export function Feed ({
           // flatRows for the same reason as the topic view: this one aggregates
           // per file itself, so it needs every event, not the nested shape
           ? <FileList events={flatRows} folderId={folderId} onSelect={onSelect}
-              onLocate={onLocate} locatable={locatable} onZoom={setZoom}
+              onZoom={setZoom}
               tree={treeRows} error={treeError}
               alertsByPath={alertsByPath} onOpenAlert={onOpenAlert} />
           : view === 'tree'
@@ -245,8 +243,9 @@ export function Feed ({
                 <col />
                 <col className="w-48" />
                 {/* table-fixed takes widths from here, not from the <td> — widening
-                    the cell alone leaves it at the colgroup's width */}
-                <col className="w-24" />
+                    the cell alone leaves it at the colgroup's width. Narrowed when
+                    the locate button left; only lines-added remains. */}
+                <col className="w-16" />
               </colgroup>
               <tbody>
                 {rows.map((e, i) => (
@@ -290,7 +289,6 @@ export function Feed ({
                     sessionName={sessionNames?.get(e.sessionId ?? '')}
                     alerts={e.path ? alertsByPath?.get(e.path) : undefined}
                     onOpenAlert={onOpenAlert}
-                    onLocate={onLocate} locatable={locatable}
                     expanded={!collapsedCalls.has(String(e.id))}
                     onToggle={() => toggleCall(String(e.id))} />
                   {!collapsedCalls.has(String(e.id)) && e.children?.map(c => (
@@ -302,7 +300,7 @@ export function Feed ({
                       sessionName={sessionNames?.get(c.sessionId ?? '')}
                       alerts={c.path ? alertsByPath?.get(c.path) : undefined}
                       onOpenAlert={onOpenAlert}
-                      onLocate={onLocate} locatable={locatable} />
+                      />
                   ))}
                   </Fragment>
                 ))}
