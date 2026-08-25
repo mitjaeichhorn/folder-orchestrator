@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const src = readFileSync(join(root, 'src/features/Markdown.tsx'), 'utf8')
+const src = readFileSync(join(root, 'src/features/detail/Markdown.tsx'), 'utf8')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 
 /**

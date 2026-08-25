@@ -278,6 +278,19 @@ are noise — ignore unknown types silently, the format changes without notice.
   against a client buffer of 2000; at 200 no alert rule could ever fire. 1000 events is ~450KB per
   connection, measured.
 
+- **`features/` is grouped by view, and the `.ts` / `.tsx` split inside it is LOAD-BEARING.** The
+  test runner is `node --experimental-strip-types --test`, which cannot load `.tsx` — so a module a
+  test needs must be `.ts`, and must import by relative path, never through the `@/` alias Vite
+  resolves and Node does not. That constraint is why the codebase keeps extracting logic into a
+  plain module beside its component (`lines.ts` / `LineBadge.tsx`, `lane-layout.ts` /
+  `LaneView.tsx`). It is the testable-core boundary, enforced by the toolchain rather than by
+  discipline.
+- **Moving files breaks more than imports.** The reorganisation rewrote 125 import statements
+  cleanly and still left three failures: two `await import()` calls, which are not `from` clauses,
+  and a `readFileSync` path in the markdown safety test. Grep for the old paths as STRINGS, not just
+  as imports — and note one fixture legitimately contains `features/contest.ts`, which must not be
+  rewritten.
+
 ## UI conventions
 
 - **Every column owns its own scroll.** A flex item defaults to `min-height: auto`, so it grows to

@@ -1,4 +1,4 @@
-import { makeRamp, rampCss, shareOf } from './gradient.ts'
+import { makeRamp, rampCss, shareOf } from '../shared/gradient.ts'
 import type { FileGroup } from './group-by-file.ts'
 import { NO_FILE } from './group-by-file.ts'
 

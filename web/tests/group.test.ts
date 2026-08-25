@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { groupByFile, groupByTopic, NO_FILE, NO_TOPIC, touchedByClaude, newestEventByPath } from '../src/features/group-by-file.ts'
+import { groupByFile, groupByTopic, NO_FILE, NO_TOPIC, touchedByClaude, newestEventByPath } from '../src/features/files/group-by-file.ts'
 
 const ev = (o: any) => ({ id: Math.random(), folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 

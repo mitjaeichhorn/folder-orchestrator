@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   lineIndex, showsLineBadge, inDefaultLongFilter, lineTone, LINE_TIER_ORANGE, LINE_TIER_YELLOW, lineIconTone
-} from '../src/features/lines.ts'
+} from '../src/features/shared/lines.ts'
 import { LINE_ALERT_AT, isExecutablePath } from '../../shared/glob.js'
 
 test('the index carries only files we actually measured', () => {

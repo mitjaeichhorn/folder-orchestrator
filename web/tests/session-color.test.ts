@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   SESSION_TONES, shortSession, sessionTones, sessionsIn, isMultiSession, sessionLabel
-} from '../src/features/session-color.ts'
+} from '../src/features/sessions/session-color.ts'
 
 test('three concurrent sessions get three distinct tones', () => {
   // The measured case: three sessions on one project inside an hour.

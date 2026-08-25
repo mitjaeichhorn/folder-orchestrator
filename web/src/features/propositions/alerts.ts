@@ -1,4 +1,4 @@
-import { isExecutablePath, LINE_ALERT_AT } from '../../../shared/glob.js'
+import { isExecutablePath, LINE_ALERT_AT } from '../../../../shared/glob.js'
 
 /**
  * Conditions worth the operator's attention, derived from events already on

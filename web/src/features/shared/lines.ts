@@ -1,6 +1,6 @@
 // Relative, not the `@shared` alias: that alias is a Vite resolution and this
 // module must load under Node's type-stripping test runner too.
-import { LINE_ALERT_AT, isBadgeExempt } from '../../../shared/glob.js'
+import { LINE_ALERT_AT, isBadgeExempt } from '../../../../shared/glob.js'
 
 /**
  * Whether a file is long enough to say so. One rule, every surface.

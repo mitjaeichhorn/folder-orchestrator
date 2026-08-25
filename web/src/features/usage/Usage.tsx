@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { api, type TopicUsage, type OrchEvent } from '@/lib/api'
-import { AUTHORED_TONE } from './authored'
+import { AUTHORED_TONE } from '../feed/authored'
 import { fmtTokens } from './usage-format'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isFree, FREE_ROW_CLASS } from '../src/features/cost.ts'
+import { isFree, FREE_ROW_CLASS } from '../src/features/shared/cost.ts'
 import { ALL_KINDS } from '../../shared/glob.js'
 
 test('filesystem kinds and alerts are free', () => {

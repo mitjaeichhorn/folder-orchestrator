@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { folderFromHash, hashForFolder, pickFolder } from '../src/features/url-state.ts'
+import { folderFromHash, hashForFolder, pickFolder } from '../src/features/folders/url-state.ts'
 
 test('a folder id round-trips through the hash', () => {
   const id = '666b5c54-96ad-4c86-8358-9febe123e770'

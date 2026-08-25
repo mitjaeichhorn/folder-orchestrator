@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { recurring, namesIn, splitOn } from '../src/features/entities.ts'
+import { recurring, namesIn, splitOn } from '../src/features/feed/entities.ts'
 
 // The measured case: fourteen consecutive Bash rows from one investigation, which
 // rendered as fourteen unrelated grey lines because the names tying them together

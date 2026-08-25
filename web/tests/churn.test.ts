@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { filesByLastChange, maxChanges, churnShare, churnColor, CHURN_STOPS, allFilesByLastChange, treeFiles, changedPaths, deletedPaths } from '../src/features/churn.ts'
-import { groupByFile, NO_FILE } from '../src/features/group-by-file.ts'
+import { filesByLastChange, maxChanges, churnShare, churnColor, CHURN_STOPS, allFilesByLastChange, treeFiles, changedPaths, deletedPaths } from '../src/features/files/churn.ts'
+import { groupByFile, NO_FILE } from '../src/features/files/group-by-file.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, topic: null, detail: {}, ...o })
 
@@ -77,7 +77,7 @@ test('non-finite and out-of-range values clamp instead of producing garbage', ()
 })
 
 test('churn and recency use different hues, so the panels cannot be confused', async () => {
-  const { HEAT_STOPS } = await import('../src/features/heat-color.ts')
+  const { HEAT_STOPS } = await import('../src/features/heat/heat-color.ts')
   const heat = HEAT_STOPS.map(s => s.color)
   const churn = CHURN_STOPS.map(s => s.color)
   assert.equal(churn.filter(c => heat.includes(c)).length, 0)

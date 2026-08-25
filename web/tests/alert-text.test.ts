@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { alertVars } from '../src/features/alert-text.ts'
-import { detectAlerts, CHURN_MIN } from '../src/features/alerts.ts'
+import { alertVars } from '../src/features/propositions/alert-text.ts'
+import { detectAlerts, CHURN_MIN } from '../src/features/propositions/alerts.ts'
 
 const w = (id: number, ts: number, path: string, s = 's1') =>
   ({ id, ts, kind: 'modified', path, sessionId: s })

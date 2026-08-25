@@ -1,4 +1,4 @@
-import { collapseBursts } from './collapse.ts'
+import { collapseBursts } from '../feed/collapse.ts'
 
 /**
  * Heat is measured in EVENTS AGO, never in seconds.

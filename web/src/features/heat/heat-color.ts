@@ -1,4 +1,4 @@
-import { makeRamp, rampCss } from './gradient.ts'
+import { makeRamp, rampCss } from '../shared/gradient.ts'
 
 /**
  * Recency: just-edited is white, cooling through yellow and orange into the

@@ -1,12 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { matchEvent, globToRe, ALL_KINDS } from '../../shared/glob.js'
-import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED } from '../src/features/session-logic.ts'
-import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from '../src/features/authored.ts'
-import { parseTool } from '../src/features/tool-name.ts'
-import { fmtTokens } from '../src/features/usage-format.ts'
-import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from '../src/features/collapse.ts'
-import { gaps } from '../src/features/timeline.ts'
+import { groupBySession, filesTouched, isRunning, RUNNING_WINDOW, UNATTRIBUTED } from '../src/features/sessions/session-logic.ts'
+import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from '../src/features/feed/authored.ts'
+import { parseTool } from '../src/features/shared/tool-name.ts'
+import { fmtTokens } from '../src/features/usage/usage-format.ts'
+import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from '../src/features/feed/collapse.ts'
+import { gaps } from '../src/features/shared/timeline.ts'
 
 const ev = (o: any) => ({ id: 1, folderId: 'F', ts: 1000, kind: 'modified', path: 'a.ts', actor: 'external', sessionId: null, tool: null, detail: {}, ...o })
 

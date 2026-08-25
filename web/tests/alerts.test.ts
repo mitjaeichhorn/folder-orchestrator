@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   detectAlerts, visibleAlerts, alertsByPath,
   CHURN_MIN, CHURN_WINDOW_MS, STALL_MS
-} from '../src/features/alerts.ts'
+} from '../src/features/propositions/alerts.ts'
 
 const w = (id: number, ts: number, path: string, sessionId = 's1') =>
   ({ id, ts, kind: 'modified', path, sessionId })

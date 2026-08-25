@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { treeFromPaths } from '../src/features/tree-from-paths.ts'
+import { treeFromPaths } from '../src/features/heat/tree-from-paths.ts'
 
 test('nested paths become a tree, with shared prefixes merged', () => {
   const t = treeFromPaths(['a/b/c.ts', 'a/b/d.ts', 'a/e.ts'])

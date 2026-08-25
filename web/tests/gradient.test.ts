@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { makeRamp, rampCss, shareOf } from '../src/features/gradient.ts'
+import { makeRamp, rampCss, shareOf } from '../src/features/shared/gradient.ts'
 
 const STOPS = [
   { at: 1, color: 'red' },

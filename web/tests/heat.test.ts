@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT, heatPaths } from '../src/features/heat.ts'
-import { pruneToActive, activeFolders, shouldPulse } from '../src/features/prune-tree.ts'
-import { heatColor, heatStyle } from '../src/features/heat-color.ts'
-import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/locate.ts'
+import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT, heatPaths } from '../src/features/heat/heat.ts'
+import { pruneToActive, activeFolders, shouldPulse } from '../src/features/heat/prune-tree.ts'
+import { heatColor, heatStyle } from '../src/features/heat/heat-color.ts'
+import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/heat/locate.ts'
 
 test('ancestors includes every folder above the file, and the file itself', () => {
   assert.deepEqual(ancestors('a/b/c.ts'), ['a', 'a/b', 'a/b/c.ts'])
@@ -311,7 +311,7 @@ test('the locate blue is not primary, which is near-white in this theme', () => 
 })
 
 test('the locate blue does not collide with the churn ramp', async () => {
-  const { CHURN_STOPS } = await import('../src/features/churn.ts')
+  const { CHURN_STOPS } = await import('../src/features/files/churn.ts')
   assert.ok(!CHURN_STOPS.some(s => s.color.includes(LOCATE_HUE)),
     'a By-file bar and a locate highlight must stay distinct')
 })

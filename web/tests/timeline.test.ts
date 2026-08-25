@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { gapPx, gaps, fmtGap, isCapped, isRunning, runningFor, isStalled, runningPaths, runningSince, MAX_GAP_PX, PX_PER_SECOND, CAP_SECONDS, RUNNING_CAP_MS } from '../src/features/timeline.ts'
+import { gapPx, gaps, fmtGap, isCapped, isRunning, runningFor, isStalled, runningPaths, runningSince, MAX_GAP_PX, PX_PER_SECOND, CAP_SECONDS, RUNNING_CAP_MS } from '../src/features/shared/timeline.ts'
 
 test('one second of elapsed time is one unit of dash', () => {
   assert.equal(gapPx(1000), PX_PER_SECOND)

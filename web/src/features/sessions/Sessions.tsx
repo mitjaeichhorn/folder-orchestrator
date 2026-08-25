@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { api, type OrchEvent, type Session } from '@/lib/api'
 import { t, fmtTime, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
-import { ToolLabel } from './ToolLabel'
+import { ToolLabel } from '../shared/ToolLabel'
 import { groupBySession, filesTouched, isRunning, UNATTRIBUTED } from './session-logic'
 
 

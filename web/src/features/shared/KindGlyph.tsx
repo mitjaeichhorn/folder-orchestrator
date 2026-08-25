@@ -1,5 +1,5 @@
 import { ClaudeIcon, CLAUDE_TONE } from './ClaudeIcon'
-import { GLYPH, TONE } from './event-view'
+import { GLYPH, TONE } from '../feed/event-view'
 import { cn } from '@/lib/utils'
 
 /** Claude-originated rows get the Claude mark; filesystem rows keep their glyph. */

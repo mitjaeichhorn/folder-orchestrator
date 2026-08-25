@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bashGist } from '../src/features/bash-gist.ts'
+import { bashGist } from '../src/features/feed/bash-gist.ts'
 
 // The measured case: every Bash row in the feed opened with a `cd` into the
 // project and an `echo` banner, so the truncated label showed only scaffolding.

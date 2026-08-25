@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { laneOf, laneProfile, LANES, LANE_TONE } from '../src/features/lanes.ts'
+import { laneOf, laneProfile, LANES, LANE_TONE } from '../src/features/lanes/lanes.ts'
 
 test('a pathless event is the spine, not a lane', () => {
   // Bash, MCP calls and prompts name no file — 53% of events on this project.

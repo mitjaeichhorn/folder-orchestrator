@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { TriangleAlert } from 'lucide-react'
 import { alertTitle, alertBody } from './alert-text'
-import { heatColor } from './heat-color'
+import { heatColor } from '../heat/heat-color'
 import type { Alert } from './alerts'
-import { FilePath } from './FilePath'
+import { FilePath } from '../shared/FilePath'
 import { t, fmtAgo } from '@/i18n'
 import { cn } from '@/lib/utils'
 

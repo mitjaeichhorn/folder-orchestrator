@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { laneRows, openGaps } from '../src/features/lane-layout.ts'
+import { laneRows, openGaps } from '../src/features/lanes/lane-layout.ts'
 
 const ev = (ts: number, path: string | null, id = ts) => ({ id, ts, path, kind: 'modified' })
 
