@@ -19,7 +19,7 @@
   "folder.notWatching": "Not watching",
   "add.title": "Add folder to monitor",
   "add.path": "Path",
-  "add.pathPlaceholder": "/Applications/MAMP/htdocs/my-project",
+  "add.pathPlaceholder": "/path/to/your/project",
   "add.name": "Name",
   "add.ignore": "Ignore patterns",
   "add.ignorePlaceholder": "*.tmp, scratch/**",

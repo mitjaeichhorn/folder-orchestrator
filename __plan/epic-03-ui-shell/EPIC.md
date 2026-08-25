@@ -109,7 +109,7 @@ by Epic 00 with route, status and duration, so a broken screen is diagnosable fr
 
 | What to execute | Expected output | Where output lands |
 |---|---|---|
-| `node server.js` + `npm --prefix web run dev`, then add `/Applications/MAMP/htdocs/prj25-folder-orchestrator` through the dialog | Folder appears in the sidebar; one row in the `folders` table; `POST /api/folders 201` in the log | browser at `localhost:5173`; `data/orchestrator.db`; `logs/orchestrator.jsonl` |
+| `node server.js` + `npm --prefix web run dev`, then add `/path/to/this/project` through the dialog | Folder appears in the sidebar; one row in the `folders` table; `POST /api/folders 201` in the log | browser at `localhost:5173`; `data/orchestrator.db`; `logs/orchestrator.jsonl` |
 | Kill the server, wait 10s, restart it | Banner goes disconnected then connected, no page reload | browser |
 | Add `<div>Hello</div>` to a component under the enforced glob, run `npm --prefix web run build` | Build fails on the lint rule, naming the file and line | terminal — paste the failure into this epic as proof the guard is live |
 

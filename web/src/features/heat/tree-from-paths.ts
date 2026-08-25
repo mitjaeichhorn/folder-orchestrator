@@ -7,7 +7,7 @@
  * a large repository: `/api/tree` is capped at MAX_NODES, the walk is
  * depth-first in alphabetical order, and on a 16,000-file project the budget
  * was spent entirely on `.claude`, `.claudekit`, `__board` … `admin` before
- * reaching `apps/` or `import-pipeline/`. Every one of the 60 most recently
+ * reaching the directories where the work was. Every one of the 60 most recently
  * changed paths fell outside the truncated tree, so the heat panel showed
  * "0 paths" while the feed scrolled with changes.
  *

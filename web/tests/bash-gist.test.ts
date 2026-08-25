@@ -5,8 +5,8 @@ import { bashGist } from '../src/features/feed/bash-gist.ts'
 // The measured case: every Bash row in the feed opened with a `cd` into the
 // project and an `echo` banner, so the truncated label showed only scaffolding.
 test('the verb survives truncation; the scaffolding does not', () => {
-  const cmd = 'cd /Applications/MAMP/htdocs/prj04-ecommerce; echo "=== index.ts ==="; '
-    + 'git show feat/admin-api-split:admin/src/lib/api/index.ts'
+  const cmd = 'cd /home/dev/work/demo-app; echo "=== index.ts ==="; '
+    + 'git show feat/some-branch:admin/src/lib/api/index.ts'
   const gist = bashGist(cmd)
   assert.ok(gist.startsWith('git show'), gist)
   assert.ok(!gist.includes('cd '), 'the folder is already named by the row')

@@ -22,7 +22,7 @@ operator wanted to catch. It also delivers the diff for free — `Edit` tool inp
 `old_string`/`new_string`, so the detail panel needs no git, no snapshotting, and no model.
 
 ## How
-1. **Slug mapping.** `/Applications/MAMP/htdocs/prj-app` → `-Applications-MAMP-htdocs-prj-app`
+1. **Slug mapping.** `/path/to/a/project` → `-Applications-MAMP-htdocs-a project`
    (non-alphanumerics to `-`). Verified against the 50 existing directories on this machine.
    Resolve at watch-start; if absent, no transcripts — not an error, the project may never have
    been opened in Claude Code.
@@ -125,7 +125,7 @@ Not complete until run against a real session with the counts recorded.
 ## Activation Evidence
 **2026-08-23** — run against a real Claude Code session (the session that built this project).
 
-- Transcript slug resolved: `-Applications-MAMP-htdocs-prj25-folder-orchestrator`.
+- Transcript slug resolved from the watched folder's absolute path.
 - `tool` events captured live for `Bash`, `Edit`, `Read`, `ToolSearch` and MCP tools, each
   carrying the correct `sessionId` (`2efdb390`).
 - **Attribution join confirmed:** a real `Edit` on `ACTIVATION_PROBE.md` relabelled the

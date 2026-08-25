@@ -16,7 +16,7 @@ status; `413` for an oversized body, `400` for malformed JSON.
 
 ```json
 [{
-  "id": "f_a1b2", "path": "/Users/me/proj", "name": "proj",
+  "id": "f_a1b2", "path": "/path/to/your/project", "name": "project",
   "ignore": ["tmp/**"], "enabled": true, "createdAt": 1740000000000,
   "status": { "folderId": "f_a1b2", "watching": true, "reason": null,
               "fileCount": 4783, "eventsPerMin": 12 }

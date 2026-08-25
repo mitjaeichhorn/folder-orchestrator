@@ -52,7 +52,7 @@ bad watcher cannot corrupt the spine.
 - [ ] `mv old.txt new.txt` produces one `renamed` event with `detail.oldPath === 'old.txt'`, not a delete plus a create
 - [ ] Writing the same file 10 times within 50ms produces exactly one `modified` event
 - [ ] `npm install` inside a watched folder produces **zero** events (deny-list) — measured, not assumed
-- [ ] Watching `/Applications/MAMP/htdocs/prj-migration-assistant-v4` (21,734 files) and touching one file in `src/` produces one event, and resident memory stays under 150MB
+- [ ] Watching `/path/to/a/large/project` (21,734 files) and touching one file in `src/` produces one event, and resident memory stays under 150MB
 - [ ] A folder's `.gitignore` patterns are honoured, including negations (`!keep.log`)
 - [ ] `stopWatch` releases the handle — `lsof -p $PID | grep <folder>` is empty afterwards
 - [ ] Deleting the watched root itself stops the watcher and logs it rather than throwing
@@ -111,7 +111,7 @@ misclassified event diagnosable without reproducing it.
 
 | What to execute | Expected output | Where output lands |
 |---|---|---|
-| Add `/Applications/MAMP/htdocs/prj-migration-assistant-v4` as a folder, then `touch` one file in its `src/` | Exactly one `modified` row for that path, `actor: 'external'` | `data/orchestrator.db`; visible in `curl -sN localhost:4000/api/stream?folder=$ID` |
+| Add `/path/to/a/large/project` as a folder, then `touch` one file in its `src/` | Exactly one `modified` row for that path, `actor: 'external'` | `data/orchestrator.db`; visible in `curl -sN localhost:4000/api/stream?folder=$ID` |
 | `npm install --dry-run` (or a real `npm ci`) inside that folder | Zero new rows | `select count(*) from events` unchanged |
 | `ps -o rss= -p $(pgrep -f 'node server.js')` after 10 minutes watching | < 150000 (KB) | stdout, pasted into this epic |
 
@@ -119,7 +119,7 @@ Not complete until all three have been run against the real 21,734-file project 
 recorded here.
 
 ## Activation Evidence
-**2026-08-23** — run against `/Applications/MAMP/htdocs/prj-migration-assistant-v4`.
+**2026-08-23** — run against `/path/to/a/large/project`.
 
 | Measure | Value |
 |---|---|

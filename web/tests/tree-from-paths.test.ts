@@ -14,16 +14,16 @@ test('nested paths become a tree, with shared prefixes merged', () => {
 })
 
 test('every node carries its full path, which is what heat is keyed on', () => {
-  const t = treeFromPaths(['import-pipeline/tests/unit/test_x.py'])
+  const t = treeFromPaths(['pipeline/tests/unit/test_x.py'])
   const walk = (ns: any[], out: string[] = []): string[] => {
     for (const n of ns) { out.push(n.p); if (n.c) walk(n.c, out) }
     return out
   }
   assert.deepEqual(walk(t), [
-    'import-pipeline',
-    'import-pipeline/tests',
-    'import-pipeline/tests/unit',
-    'import-pipeline/tests/unit/test_x.py'
+    'pipeline',
+    'pipeline/tests',
+    'pipeline/tests/unit',
+    'pipeline/tests/unit/test_x.py'
   ])
 })
 

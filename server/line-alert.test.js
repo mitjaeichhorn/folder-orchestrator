@@ -102,7 +102,7 @@ test('the executable list is code, not markup, styles, data or locks', () => {
   for (const p of ['a.ts', 'a.tsx', 'a.js', 'a.py', 'a.go', 'a.rs', 'a.sh', 'a.rb', 'a.php']) {
     assert.equal(isExecutablePath(p), true, p)
   }
-  // measured on prj04-ecommerce: these are what the filter exists to drop —
+  // measured on a large real project: these are what the filter exists to drop —
   // four vendored base.css copies and a lock file, long because generated.
   for (const p of ['assets/base.css', 'uv.lock', 'sections/section.liquid',
                    'x.json', 'x.md', 'x.html', 'x.yaml', 'x.svg', 'x.toml']) {

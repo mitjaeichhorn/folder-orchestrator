@@ -34,5 +34,5 @@ Any path segment equal to a deny-list directory name ignores the whole subtree â
 
 ## Activation Task
 `node -e` run of `shouldIgnore` over the real file list of
-`/Applications/MAMP/htdocs/prj-migration-assistant-v4` (21,734 paths): print total, ignored, kept.
+`/path/to/a/large/project` (21,734 paths): print total, ignored, kept.
 Kept must be â‰ˆ14,978. Paste all three numbers into `../EPIC.md`.

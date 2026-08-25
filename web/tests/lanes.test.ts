@@ -12,7 +12,7 @@ test('a pathless event is the spine, not a lane', () => {
 test('tests are recognised by directory, suffix and conftest', () => {
   for (const p of [
     'web/tests/lanes.test.ts', 'server/db.test.js', 'src/__tests__/App.tsx',
-    'a/b.spec.ts', 'import-pipeline/tests/unit/x.py', 'apps/tests/conftest.py'
+    'a/b.spec.ts', 'pipeline/tests/unit/x.py', 'apps/tests/conftest.py'
   ]) assert.equal(laneOf(p), 'test', p)
 })
 

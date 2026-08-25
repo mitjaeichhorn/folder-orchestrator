@@ -16,9 +16,9 @@ test('only the last segment is the file', () => {
 
 test('a prefix matches whole segments, never a leading substring', () => {
   // these trees are full of names sharing a first word — startsWith would be wrong
-  assert.equal(sharesPrefix('apps/app__image_generator/x.py', 'apps/app'), false)
-  assert.equal(sharesPrefix('apps/app__image_generator/x.py', 'apps/app__image_generator'), true)
-  assert.equal(sharesPrefix('apps/app__image_generator', 'apps/app__image_generator'), true,
+  assert.equal(sharesPrefix('apps/service_alpha/x.py', 'apps/app'), false)
+  assert.equal(sharesPrefix('apps/service_alpha/x.py', 'apps/service_alpha'), true)
+  assert.equal(sharesPrefix('apps/service_alpha', 'apps/service_alpha'), true,
     'the folder itself is under itself')
 })
 

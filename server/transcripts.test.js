@@ -16,7 +16,7 @@ test('slugify matches the real project directory names on this machine', () => {
   const dirs = readdirSync(join(homedir(), '.claude', 'projects'), { withFileTypes: true })
     .filter(d => d.isDirectory()).map(d => d.name)
   assert.ok(dirs.length > 0, 'no transcript dirs to verify against')
-  assert.equal(slugify('/Applications/MAMP/htdocs/prj-app'), '-Applications-MAMP-htdocs-prj-app')
+  assert.equal(slugify('/home/dev/work/my-app'), '-home-dev-work-my-app')
   // every real dir name must be a fixed point of the slug alphabet
   for (const d of dirs) assert.match(d, /^[a-zA-Z0-9-]+$/, d)
 })

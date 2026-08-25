@@ -58,7 +58,7 @@ test('two sessions on different branches stay distinct — the worktree case', t
   db.insertEvent(D, { folderId: 'F', ts: 10, kind: 'modified', actor: 'claude', sessionId: 'A', path: 'src/api.ts' })
   db.insertEvent(D, { folderId: 'F', ts: 11, kind: 'modified', actor: 'claude', sessionId: 'B', path: 'src/api.ts' })
   db.upsertSession(D, { id: 'A', folderId: 'F', gitBranch: 'main', cwd: '/repo' })
-  db.upsertSession(D, { id: 'B', folderId: 'F', gitBranch: 'admin-api-split', cwd: '/repo/.claude/worktrees/admin-api-split' })
+  db.upsertSession(D, { id: 'B', folderId: 'F', gitBranch: 'feature-branch', cwd: '/repo/.claude/worktrees/feature-branch' })
   const byId = Object.fromEntries(db.sessions(D, 'F').map(r => [r.id, r]))
   assert.notEqual(byId.A.gitBranch, byId.B.gitBranch,
     'same relative path, two branches — which is the whole reason to store cwd and branch')

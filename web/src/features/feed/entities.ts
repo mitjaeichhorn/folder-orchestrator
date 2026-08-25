@@ -23,7 +23,7 @@ const SPLIT = /[\s;:|&"'`()<>{}[\],=]+/
 
 /**
  * Names, not prose. A token qualifies on shape alone:
- * a ref (`feat/admin-api-split`, `HEAD`, a sha), a path with an extension, or a
+ * a ref (`feat/some-branch`, `HEAD`, a sha), a path with an extension, or a
  * SCREAMING_SNAKE identifier. Everything else in a command line is a verb, a flag
  * or a word — none of which mean anything by recurring.
  */

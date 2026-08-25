@@ -2,7 +2,7 @@
  * Splitting a path into the folder prefixes you can point at.
  *
  * Hovering `internal` inside
- * `.claude/worktrees/images-reorg/apps/app__image_generator/internal/routes/x.py`
+ * `apps/service_alpha/internal/routes/handler.py`
  * means "everything up to and including internal" — so the answer is a prefix,
  * not a segment. Rows elsewhere on screen share that prefix or they do not.
  *
@@ -32,7 +32,7 @@ export function segmentsOf (path: string): PathSegment[] {
 /**
  * Does this path sit under that prefix?
  *
- * Compares whole segments, so `app` never matches `app__image_generator` — the
+ * Compares whole segments, so `service` never matches `service_alpha` — the
  * bug a `startsWith` would ship, and these trees are full of names that share a
  * leading word.
  */

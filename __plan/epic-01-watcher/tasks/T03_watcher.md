@@ -38,6 +38,6 @@ On boot, `startWatch` every folder where `enabled = 1`.
 - [ ] Resident memory under 150MB while watching the 21,734-file project
 
 ## Activation Task
-Watch `/Applications/MAMP/htdocs/prj-migration-assistant-v4`; `touch` one file in `src/`; confirm
+Watch `/path/to/a/large/project`; `touch` one file in `src/`; confirm
 exactly one row. Then `ps -o rss= -p $(pgrep -f 'node server')` after 10 minutes. Paste the row and
 the RSS number into `../EPIC.md`.

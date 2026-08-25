@@ -1,4 +1,4 @@
-# prj25-folder-orchestrator
+# Folder Orchestrator
 
 Read [north-star.md](north-star.md) first — it holds the product intent and the non-goals.
 Reference documentation is in [docs/](docs/): [architecture](docs/architecture.md), [data model](docs/data-model.md), [API](docs/api.md), [operations](docs/operations.md), [development](docs/development.md).
@@ -8,6 +8,16 @@ Monitors selected project folders to full depth and streams every file event, pl
 tool activity, to a local dashboard. macOS, localhost, single user.
 
 ## Hard constraints
+
+- **Project-agnostic, enforced.** No project name, branch name or machine-specific absolute path
+  belongs in code, comments, tests or docs. The measurements behind every threshold here are worth
+  keeping — "the five longest files were all append-only logs" is why a rule exists — but the NAMES
+  are not: a tool carrying one operator's folder names reads as theirs, and on a public repository
+  it publishes what they were working on. Say "a 14,000-file project", never which one.
+  `server/agnostic.test.js` scans every tracked file for `/Users/…`, a local dev root, and the
+  operator's own project-prefix naming scheme. It found a leaked example path in `docs/api.md` on
+  its first run — and then caught this very paragraph for spelling the forbidden prefix out while
+  describing it, which is why the guard builds its patterns from concatenated parts. Watched-folder names in the database are DATA, not code, and are untouched by this.
 
 - **No LLM.** Nothing in this codebase calls a model or an inference API. All labelling, diffing
   and alerting is deterministic. A feature that needs a model is out of scope, not a TODO.
@@ -216,8 +226,8 @@ Keep it at this file count. New concerns go into an existing file until it genui
   nested two or three levels inside a row or tile, so threading it would be ~15 prop additions to
   say one thing and every new view would have to remember.
 - **Prefix matching is per SEGMENT, never `startsWith`.** These trees contain `app`,
-  `app__image_generator` and `app__product_data`; a string prefix lights all three when you point at
-  the first. Verified live: hovering `app__image_generator` stops there.
+  sibling directories whose names share a leading word; a string prefix lights all of them when you
+  point at the first. Verified live on such a tree: hovering the longer name stops there.
 - **One locate affordance deliberately survives** — the "Show in project tree" button in the
   proposition panel. It is a considered action in an off-canvas, not row furniture, and it is what
   keeps `feed.locate`, `chainOf`, `revealPredicate` and the `LOCATE_*` classes reachable from `src`.
@@ -254,7 +264,7 @@ Keep it at this file count. New concerns go into an existing file until it genui
   an identical size and asserts the count changes.
 - **The tree is NOT capped by node count, and the cap it used to have was guarding nothing.** A
   12,000-node ceiling cut the walk off mid-alphabet on a 16,000-file project: it spent the budget on
-  `.claude`, `.claudekit`, `__board` … `admin` and never reached `apps/` or `import-pipeline/`, so
+  the alphabetically early directories and never reached the ones where the work was, so
   **all 60** of the most recently changed paths fell outside the result and the heat panel read
   "0 paths — nothing has changed yet" while the feed scrolled. The first measurement said the full
   walk was ~175,000 nodes, which argued for keeping the cap — but that was measured WITHOUT the

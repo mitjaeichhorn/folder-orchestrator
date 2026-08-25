@@ -68,7 +68,7 @@ export const LINE_ALERT_AT = 1000
  *
  * `.jsonl` sits here with `.json` for a reason found by measuring: a
  * line-delimited log is thousands of lines *by definition*, and on
- * prj04-ecommerce the five longest files in the project were all append-only
+ * a 14,000-file project the five longest files were all append-only
  * `.jsonl` logs, which would have made the alert read as noise on its first run.
  */
 export const LINE_MEASURE_EXEMPT = [
@@ -90,7 +90,7 @@ export const LINE_ALERT_EXEMPT = [...LINE_MEASURE_EXEMPT, ...LINE_BADGE_EXEMPT]
 /**
  * Code that runs, as opposed to markup, styles, data and lock files.
  *
- * The distinction earns its place: filtering prj04-ecommerce's long files by it
+ * The distinction earns its place: filtering one large project's long files by it
  * drops four near-identical vendored `base.css` copies and a `uv.lock`, which
  * are long because they are generated, not because anyone should split them.
  */

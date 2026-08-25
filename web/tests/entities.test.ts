@@ -6,13 +6,13 @@ import { recurring, namesIn, splitOn } from '../src/features/feed/entities.ts'
 // rendered as fourteen unrelated grey lines because the names tying them together
 // sat at a different offset in every row.
 const RUN = [
-  'cd /Applications/MAMP/htdocs/prj04-ecommerce; echo "=== package.json scripts (split branch) ==="; git show feat/admin-api-split:admin/package.json',
+  'cd /home/dev/work/demo-app; echo "=== package.json scripts (split branch) ==="; git show feat/some-branch:admin/package.json',
   'The stale _EXCLUSIVE_ACCEPT pointers',
-  'cd /Applications/MAMP/htdocs/prj04-ecommerce; echo "=== uncommitted api.ts diff on HEAD ==="; git diff -- admin/src/lib/api.ts | head -40',
-  'cd /Applications/MAMP/htdocs/prj04-ecommerce; echo "=== legacy.ts head ==="; git show feat/admin-api-split:admin/src/lib/api/legacy.ts | head',
-  'cd /Applications/MAMP/htdocs/prj04-ecommerce; echo "=== index.ts ==="; git show feat/admin-api-split:admin/src/lib/api/index.ts',
+  'cd /home/dev/work/demo-app; echo "=== uncommitted api.ts diff on HEAD ==="; git diff -- admin/src/lib/api.ts | head -40',
+  'cd /home/dev/work/demo-app; echo "=== legacy.ts head ==="; git show feat/some-branch:admin/src/lib/api/legacy.ts | head',
+  'cd /home/dev/work/demo-app; echo "=== index.ts ==="; git show feat/some-branch:admin/src/lib/api/index.ts',
   'Every reference to the deleted gate',
-  'cd /Applications/MAMP/htdocs/prj04-ecommerce; MB=$(git merge-base HEAD feat/admin-api-split); echo "merge-base: $(git log --oneline -1 $MB)"',
+  'cd /home/dev/work/demo-app; MB=$(git merge-base HEAD feat/some-branch); echo "merge-base: $(git log --oneline -1 $MB)"',
   'echo "=== exported consts in api.ts ==="; grep -n \'^export const \\|^export function \' admin/src/lib/api.ts',
   'git branch -a --contains f8cf9735 2>/dev/null; echo "--- current branch merge-base ---"; git log --oneline -1 f8cf9735',
   'git log --oneline -8 -- admin/src/lib/api.ts; echo "--- branches with lib/api ---"; git branch -a',
@@ -21,7 +21,7 @@ const RUN = [
 
 test('the names threaded through the run are the ones that surface', () => {
   const marks = recurring(RUN)
-  assert.ok(marks.includes('feat/admin-api-split'), marks.join(' | '))
+  assert.ok(marks.includes('feat/some-branch'), marks.join(' | '))
   assert.ok(marks.includes('admin/src/lib/api.ts'), marks.join(' | '))
   assert.ok(marks.includes('_EXCLUSIVE_ACCEPT'), marks.join(' | '))
 })
@@ -45,7 +45,7 @@ test('verbs, flags and prose never qualify — only name shapes do', () => {
 })
 
 test('splitOn is loss-free, whatever it marks', () => {
-  const label = 'git show feat/admin-api-split:admin/src/lib/api.ts'
+  const label = 'git show feat/some-branch:admin/src/lib/api.ts'
   const parts = splitOn(label, recurring(RUN))
   assert.equal(parts.map(p => p.t).join(''), label, 'a highlight must never eat a character')
   assert.ok(parts.some(p => p.mark), 'and it must actually mark something here')
