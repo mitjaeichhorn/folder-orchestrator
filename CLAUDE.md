@@ -144,10 +144,15 @@ Keep it at this file count. New concerns go into an existing file until it genui
   `collapseBursts` the feed uses, deliberately not a second implementation, so the two views
   agree on what counts as one action. A burst at the project root has `dir === ''` and stamps
   nothing: stamping `''` would mark every path in the tree.
-- **An "active" branch is one that was touched at all, not one that is still bright.** `hasHeat`
-  is membership in the stamp map, independent of how far it has dimmed. Because every ancestor of
-  a touched path is stamped, filtering on it preserves the whole route to a changed file — no
-  descendant search needed.
+- **An "active" branch is one still INSIDE THE GRADE, not merely one that was touched.** It used
+  to be membership in the stamp map, independent of how far a path had dimmed — and that was
+  indistinguishable from the grade while the client held ~200 events: measured, 31 stamped and 31
+  graded. Raising the SSE backfill to 1000 for the proposition rules turned that into 88 stamped
+  against the same 31, so 57 paths sat at the muted floor: present, grey, carrying no signal, and
+  pushing the ones that did off the screen. `inGrade` keys visibility to `heatOf > MIN_HEAT`, which
+  also makes the tree independent of how much history the client happens to hold — the same work
+  looks the same at a buffer of 200 or 2000. Because every ancestor of a touched path is stamped,
+  filtering still preserves the whole route to a changed file, with no descendant search.
 - **The heat ramp is white -> yellow -> orange -> muted grey**, interpolated in OKLab so the
   midpoints stay even instead of going muddy the way sRGB blending does. Pure white means the
   path was touched by the most recent event; the grey floor means untouched.

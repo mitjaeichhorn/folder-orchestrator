@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT, heatPaths } from '../src/features/heat/heat.ts'
+import {
+  emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT, heatPaths, inGrade
+} from '../src/features/heat/heat.ts'
 import { pruneToActive, activeFolders, shouldPulse } from '../src/features/heat/prune-tree.ts'
 import { heatColor, heatStyle } from '../src/features/heat/heat-color.ts'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/heat/locate.ts'
@@ -374,4 +376,31 @@ test('the collapse leaves the heat state usable — the branch is still lit', ()
   assert.equal(heatOf(s, 'wt/docs'), 1, 'the directory is fully hot')
   assert.equal(heatOf(s, 'wt'), 1, 'its ancestor too')
   assert.equal(hasHeat(s, 'wt/docs/f3.md'), false, 'an individual member is not claimed as touched')
+})
+
+test('inGrade follows the ramp, not mere membership', () => {
+  // The distinction only appears with enough history: at ~200 events every
+  // stamped path was still graded; at 1000 it was 31 of 88.
+  let s = emptyHeat()
+  s = touch(s, 'old.ts')
+  for (let i = 0; i < HEAT_SPAN + 5; i++) s = touch(s, `other${i}.ts`)
+  assert.equal(hasHeat(s, 'old.ts'), true, 'still stamped')
+  assert.equal(inGrade(s, 'old.ts'), false, 'but faded past the floor, so no longer shown')
+  assert.equal(inGrade(s, `other${HEAT_SPAN + 4}.ts`), true, 'the newest is fully graded')
+})
+
+test('a path never touched is not in the grade', () => {
+  assert.equal(inGrade(touch(emptyHeat(), 'a.ts'), 'never.ts'), false)
+})
+
+test('the grade window is the ramp, so visibility and colour move together', () => {
+  // Measured at the edge: by age 38 of HEAT_SPAN 40 the ramp already returns
+  // exactly MIN_HEAT, so "inside HEAT_SPAN" is not the same as "still graded".
+  // Visibility follows the COLOUR, which is the point — half way through it is
+  // plainly still graded.
+  let s = emptyHeat()
+  s = touch(s, 'x.ts')
+  for (let i = 0; i < HEAT_SPAN / 2; i++) s = touch(s, `f${i}.ts`)
+  assert.equal(inGrade(s, 'x.ts'), true)
+  assert.ok(heatOf(s, 'x.ts') > MIN_HEAT, 'above the floor, therefore shown')
 })

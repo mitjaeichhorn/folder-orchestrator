@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, TriangleAlert } from 'lucide-react'
 import { config } from '@/config'
 import { useDebounced } from '@/hooks/useDebounced'
-import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
+import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, inGrade, type HeatState } from './heat'
 import { activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { treeFromPaths } from './tree-from-paths'
 import { showsLineBadge, lineIconTone } from '../shared/lines'
@@ -166,7 +166,10 @@ export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile, li
   // which paths the panel can actually describe
   const openable = useMemo(() => new Set(newestEventByPath(events).keys()), [events])
 
-  const isActive = (p: string) => hasHeat(heat, p)
+  // Inside the grade, not merely stamped: a path that has dimmed to the floor
+  // has nothing left to say, and at a 1000-event backfill 57 of 88 were exactly
+  // that. See `inGrade`.
+  const isActive = (p: string) => inGrade(heat, p)
   // Derived, never stored: `closed` and `activeOnly` are untouched, so leaving the
   // row restores the tree exactly by simply dropping this override.
   const chain = useMemo(() => chainOf(hoverPath), [hoverPath])

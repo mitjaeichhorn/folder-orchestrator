@@ -75,6 +75,23 @@ export function touchAll (state: HeatState, paths: Array<string | null | undefin
 }
 
 /**
+ * Is this path still inside the grade — white through yellow to muted?
+ *
+ * "Active" used to mean stamped at all, however far it had dimmed. That was
+ * indistinguishable from this while the client held ~200 events: measured, 31
+ * stamped and 31 graded. At 1000 events it is 88 stamped against the same 31,
+ * so 57 paths sat at the floor — present, grey, carrying no signal, and pushing
+ * the ones that do carry signal off the screen.
+ *
+ * Keying visibility to the GRADE instead makes the tree independent of how much
+ * history the client happens to hold, which is the property that was quietly
+ * missing: the same work should look the same whether the buffer is 200 or 2000.
+ */
+export function inGrade (state: HeatState, path: string): boolean {
+  return heatOf(state, path) > MIN_HEAT
+}
+
+/**
  * 1 = just changed, MIN_HEAT = untouched for HEAT_SPAN events or never touched.
  * A path with no stamp sits at the floor rather than being hidden.
  */
