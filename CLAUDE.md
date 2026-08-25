@@ -389,6 +389,13 @@ are noise — ignore unknown types silently, the format changes without notice.
   `test` is checked before `planning` so a `.md` fixture in a test directory does not inflate the
   planning lane, and before `work` because a test is work by any other measure. Still zero model:
   it is path matching, the same machinery the ignore rules use.
+- **The heat header's fold controls only exist while the filter is off.** Under "Active only"
+  every folder rendered is active by construction, so "collapse the inactive ones" has nothing to
+  act on and reads as a broken button — measured on a 16,000-file tree: filter off it takes 1,754
+  open folders down to 5; filter on the tree does not move. It is hidden rather than disabled,
+  because a control that cannot act should not be on screen. Note also what it is NOT: it was
+  mistaken for a "show the whole tree" button, which is the *switch*. The unfold icon beside it is
+  that undo, and the switch now carries a title saying which is which.
 - **The view switch is not a filter.** Timeline / By topic stays in the feed column; the
   collapsible filter area holds the tabs, kind chips, path glob and time window.
 

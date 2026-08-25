@@ -11,7 +11,7 @@ import { newestEventByPath } from '../files/group-by-file'
 import { heatStyle } from './heat-color'
 import { LINE_ALERT_AT } from '@shared/glob.js'
 import { Switch } from '@/components/ui/switch'
-import { FoldVertical } from 'lucide-react'
+import { FoldVertical, UnfoldVertical } from 'lucide-react'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -188,21 +188,44 @@ export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile, li
     // thing here that could get expensive
   }, [tree, activeOnly, heat.tick, chain])
 
-  /** Collapse every folder that has not been touched; leave the active ones open. */
+  /**
+   * Collapse every folder that has not been touched; leave the active ones open.
+   *
+   * Only ever does anything on the FULL tree. Under "Active only" every rendered
+   * folder is active by construction, so there is nothing inactive left to
+   * collapse and the button reads as broken — measured on a 16,000-file project:
+   * with the filter off it takes 1,754 open folders down to 5, and with it on
+   * the tree does not move. That is why it is hidden rather than disabled while
+   * the filter is on: a control that cannot act should not be on screen.
+   */
   const collapseInactive = () => {
     if (!tree) return
     const active = new Set(activeFolders(tree.children as never, isActive))
     setClosed(new Set(allFolders(tree.children as never).filter(p => !active.has(p))))
   }
 
+  /** Undo it — every folder open again, which is what "show the whole tree" means. */
+  const expandAll = () => setClosed(new Set())
+
   return (
     <div data-slot="heat-tree" data-hover={hoverPath ?? ''} className="flex h-full min-h-0 flex-col border-l">
       <div className="text-muted-foreground flex shrink-0 items-center gap-2 border-b px-2 py-1.5 text-xs">
         <span className="uppercase">{t('heat.title')}</span>
-        <button onClick={collapseInactive} title={t('heat.collapseInactive')}
-          className="hover:text-foreground ml-auto shrink-0">
-          <FoldVertical className="size-3.5" />
-        </button>
+        {/* Both only mean anything on the full tree — under "Active only" every
+            folder shown is active, so there is nothing to collapse and nothing
+            hidden to expand. */}
+        {!activeOnly && (
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            <button onClick={expandAll} title={t('heat.expandAll')}
+              className="hover:text-foreground" aria-label={t('heat.expandAll')}>
+              <UnfoldVertical className="size-3.5" />
+            </button>
+            <button onClick={collapseInactive} title={t('heat.collapseInactive')}
+              className="hover:text-foreground" aria-label={t('heat.collapseInactive')}>
+              <FoldVertical className="size-3.5" />
+            </button>
+          </span>
+        )}
         <label className="flex shrink-0 cursor-pointer items-center gap-1.5" title={t('heat.activeOnlyHint')}>
           <span>{t('heat.activeOnly')}</span>
           <Switch checked={activeOnly} onCheckedChange={setActiveOnly} className="scale-75" />
