@@ -197,7 +197,7 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="24" minSize="12" maxSize="50" className="min-h-0 overflow-hidden">
               <HeatTree folderId={folder.id} events={events} running={running} hoverPath={hoverPath}
-                onOpenFile={openFromTree} />
+                onOpenFile={openFromTree} lines={lines} />
             </ResizablePanel>
           </>
         )}

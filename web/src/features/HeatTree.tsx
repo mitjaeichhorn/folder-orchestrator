@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, TriangleAlert } from 'lucide-react'
 import { config } from '@/config'
 import { useDebounced } from '@/hooks/useDebounced'
 import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { treeFromPaths } from './tree-from-paths'
+import { showsLineBadge, lineTone } from './lines'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
 import { newestEventByPath } from './group-by-file'
 import { heatStyle } from './heat-color'
+import { LINE_ALERT_AT } from '@shared/glob.js'
 import { Switch } from '@/components/ui/switch'
 import { FoldVertical } from 'lucide-react'
 import type { OrchEvent } from '@/lib/api'
-import { t } from '@/i18n'
+import { t, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /** Coalesce a burst of structural changes into one refetch. */
@@ -25,7 +27,7 @@ const countNodes = (nodes: Node[]): number =>
 
 const EMPTY_CHAIN: ReadonlySet<string> = new Set<string>()
 
-function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, onOpenFile }: {
+function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, onOpenFile, lines }: {
   node: Node
   heat: HeatState
   depth: number
@@ -36,6 +38,8 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, 
   /** Paths with an event behind them — the only ones the panel can describe. */
   openable?: ReadonlySet<string>
   onOpenFile?: (path: string) => void
+  /** Path -> line count, for the long-file mark. */
+  lines?: Map<string, number>
 }) {
   const h = heatOf(heat, node.p)
   const isOpen = isOpenWith(closed, chain ?? EMPTY_CHAIN, node.p)
@@ -53,7 +57,20 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, 
   const justEdited = h >= 1
 
   if (node.d === 0) {
-    const shared = cn('w-full truncate rounded-sm py-px text-left font-mono text-[10px] leading-tight',
+    // Same rule and the same tiers as the By-file list, in the space a 10px tree
+    // row has: an icon rather than the pill, pushed right, tinted by length.
+    const n = lines?.get(node.p)
+    const longMark = showsLineBadge(n) && typeof n === 'number'
+      ? (
+        // the title lives on a wrapper: lucide icons take no title prop
+        <span className="ml-auto shrink-0"
+          title={t('files.longFile', { n: fmtNum(n), at: fmtNum(LINE_ALERT_AT) })}>
+          <TriangleAlert className={cn('size-2.5', lineTone(n))}
+            aria-label={t('files.lines', { n: fmtNum(n) })} />
+        </span>
+        )
+      : null
+    const shared = cn('flex w-full items-center gap-1 rounded-sm py-px text-left font-mono text-[10px] leading-tight',
       justEdited && 'font-bold', flash && 'orch-flash', pulsing && 'orch-pulse',
       onChain && LOCATE_CHAIN_CLASS, isTarget && LOCATE_TARGET_CLASS)
     // Only a file we have an event for can open the panel — the panel describes
@@ -62,14 +79,16 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, 
     // than offering a click that does nothing.
     if (!onOpenFile || !openable?.has(node.p)) {
       return (
-        <div key={flashKey} className={shared} style={style} title={node.p}>{node.n}</div>
+        <div key={flashKey} className={shared} style={style} title={node.p}>
+          <span className="truncate">{node.n}</span>{longMark}
+        </div>
       )
     }
     return (
       <button key={flashKey} onClick={() => onOpenFile(node.p)}
         className={cn(shared, 'hover:bg-muted/40 cursor-pointer')}
         style={style} title={node.p}>
-        {node.n}
+        <span className="truncate">{node.n}</span>{longMark}
       </button>
     )
   }
@@ -87,18 +106,20 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, 
       </button>
       {isOpen && node.c?.map(c => (
         <Branch key={c.p} node={c} heat={heat} depth={depth + 1} closed={closed} toggle={toggle}
-          running={running} chain={chain} openable={openable} onOpenFile={onOpenFile} />
+          running={running} chain={chain} openable={openable} onOpenFile={onOpenFile} lines={lines} />
       ))}
     </div>
   )
 }
 
-export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile }: {
+export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile, lines }: {
   folderId: string
   events: OrchEvent[]
   running?: Set<string>
   hoverPath?: string | null
   onOpenFile?: (path: string) => void
+  /** Path -> line count, shared with the feed and By file. */
+  lines?: Map<string, number>
 }) {
   const [tree, setTree] = useState<TreeResponse | null>(null)
   const [closed, setClosed] = useState<Set<string>>(new Set())
@@ -199,7 +220,7 @@ export function HeatTree ({ folderId, events, running, hoverPath, onOpenFile }: 
               <>
                 {roots.map(n => (
                   <Branch key={n.p} node={n} heat={heat} depth={0} closed={closed} toggle={toggle}
-                    running={running} chain={chain} openable={openable} onOpenFile={onOpenFile} />
+                    running={running} chain={chain} openable={openable} onOpenFile={onOpenFile} lines={lines} />
                 ))}
                 {activeOnly && roots.length === 0 && (
                   <p className="text-muted-foreground p-3 text-[10px]">{t('heat.noneActive')}</p>

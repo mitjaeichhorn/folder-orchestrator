@@ -194,6 +194,10 @@ Keep it at this file count. New concerns go into an existing file until it genui
   orange -> grey. Note the cost — that ramp and these badges now share a hue family and can be
   on screen together, which the colour rules otherwise forbid. They are separated by column and
   by shape (a pill, never a tree row), not by hue.
+- **The heat tree marks a long file with an icon, not the pill.** Same rule and the same three
+  tiers as By file — it calls `showsLineBadge` and `lineTone` rather than restating the threshold —
+  but a 10px tree row has no space for a pill, so it is a triangle pushed to the right edge with the
+  count in its title. Lucide icons take no `title` prop; it goes on a wrapper span.
 - **The long-file badge is one rule; the exemption lives in the FILTER.** Showing the count
   everywhere but exempting python from the badge left the feed, By topic and the detail panel
   permanently blank — measured live, all five long files present in the feed were `.py`, and the
