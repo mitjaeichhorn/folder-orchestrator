@@ -9,6 +9,8 @@ import { Lightbox } from './Lightbox'
 import { collapseRepeats, collapseBursts, nestByCall, visibleCount } from './collapse'
 import { deletedPaths } from './churn'
 import { sessionTones, sessionsIn, isMultiSession, shortSession } from './session-color'
+import { Propositions } from './Propositions'
+import type { Alert } from './alerts'
 import { parseTool } from './tool-name'
 import { recurring } from './entities'
 import { rowText } from './event-view'
@@ -31,7 +33,7 @@ const WINDOWS = [
 
 export function Feed ({
   events, evicted, selected, onSelect, folderId, filtersOpen = true, running, onLocate, locatable,
-  treeRows, treeError, lines, sessionNames
+  treeRows, treeError, lines, sessionNames, alertsByPath, onOpenAlert, propositions
 }: {
   events: OrchEvent[]
   evicted: number
@@ -47,11 +49,16 @@ export function Feed ({
   lines: Map<string, number>
   /** Claude Code's own name per session, where it has chosen one. */
   sessionNames?: Map<string, string>
+  /** Alerts hanging under the last row naming that file, keyed by path. */
+  alertsByPath?: Map<string, Alert[]>
+  onOpenAlert?: (a: Alert) => void
+  /** Everything proposed, for the view of the same name. */
+  propositions?: Alert[]
 }) {
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
   const [windowMs, setWindowMs] = useState(0)
-  const [view, setView] = useState<'timeline' | 'tree' | 'files' | 'lanes'>('timeline')
+  const [view, setView] = useState<'timeline' | 'tree' | 'files' | 'lanes' | 'props'>('timeline')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [zoom, setZoom] = useState<string | null>(null)
   const [pinned, setPinned] = useState(true)
@@ -86,6 +93,8 @@ export function Feed ({
   // nesting runs LAST: both collapse passes need a flat, time-ordered array
   const rows = useMemo(() => nestByCall(flatRows), [flatRows])
 
+  // rows are newest-first, so the first row naming a path IS the last change to
+  // it; each alert is emitted once, under that row.
   const rowGaps = useMemo(() => gaps(rows.map(e => e.ts)), [rows])
   // Scoped to what is on screen, deliberately: a name is worth marking because it
   // recurs among the rows the operator is reading, not across the whole history.
@@ -137,6 +146,17 @@ export function Feed ({
           onClick={() => setView('files')}>{t('view.byFile')}</Button>
         <Button size="sm" variant={view === 'lanes' ? 'secondary' : 'ghost'}
           onClick={() => setView('lanes')}>{t('view.byLane')}</Button>
+        {/* only exists while something is proposed — an always-present tab
+            reading zero is a tab you stop looking at */}
+        {!!propositions?.length && (
+          <Button size="sm" variant={view === 'props' ? 'secondary' : 'ghost'}
+            onClick={() => setView('props')}>
+            {t('view.propositions')}
+            <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 font-mono text-[10px] text-black tabular-nums">
+              {propositions.length}
+            </span>
+          </Button>
+        )}
       </div>
       {filtersOpen && (
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -189,17 +209,21 @@ export function Feed ({
       )}
 
       <div ref={viewport} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto pt-1">
-        {view === 'lanes'
+        {view === 'props'
+          ? <Propositions alerts={propositions ?? []} onOpen={a => onOpenAlert?.(a)} />
+          : view === 'lanes'
           // flatRows, not rows: lanes place every event themselves, and the
           // nested shape would hide each adopted child inside its parent
           ? <LaneView events={flatRows} selected={selected} onSelect={onSelect}
-              sessionTones={tones} sessionNames={sessionNames} />
+              sessionTones={tones} sessionNames={sessionNames}
+              alertsByPath={alertsByPath} onOpenAlert={onOpenAlert} />
           : view === 'files'
           // flatRows for the same reason as the topic view: this one aggregates
           // per file itself, so it needs every event, not the nested shape
           ? <FileList events={flatRows} folderId={folderId} onSelect={onSelect}
               onLocate={onLocate} locatable={locatable} onZoom={setZoom}
-              tree={treeRows} error={treeError} />
+              tree={treeRows} error={treeError}
+              alertsByPath={alertsByPath} onOpenAlert={onOpenAlert} />
           : view === 'tree'
           // flatRows, not rows: the topic tree groups every event itself, and
           // handing it the nested array would hide every adopted child
@@ -264,6 +288,8 @@ export function Feed ({
                     running={running} onZoom={setZoom} gone={gone} lines={lines}
                     sessionTone={multi ? tones.get(e.sessionId ?? '') : undefined}
                     sessionName={sessionNames?.get(e.sessionId ?? '')}
+                    alerts={e.path ? alertsByPath?.get(e.path) : undefined}
+                    onOpenAlert={onOpenAlert}
                     onLocate={onLocate} locatable={locatable}
                     expanded={!collapsedCalls.has(String(e.id))}
                     onToggle={() => toggleCall(String(e.id))} />
@@ -274,6 +300,8 @@ export function Feed ({
                       running={running} onZoom={setZoom} gone={gone} lines={lines}
                       sessionTone={multi ? tones.get(c.sessionId ?? '') : undefined}
                       sessionName={sessionNames?.get(c.sessionId ?? '')}
+                      alerts={c.path ? alertsByPath?.get(c.path) : undefined}
+                      onOpenAlert={onOpenAlert}
                       onLocate={onLocate} locatable={locatable} />
                   ))}
                   </Fragment>

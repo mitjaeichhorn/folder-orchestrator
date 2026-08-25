@@ -9,6 +9,8 @@ import { KindGlyph } from './KindGlyph'
 import { rowText } from './event-view'
 import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { sessionLabel } from './session-color'
+import { AlertDot } from './AlertDot'
+import type { Alert } from './alerts'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtNum } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -34,12 +36,14 @@ import { cn } from '@/lib/utils'
  * Test climbs past ten minutes is the picture this view exists to show, and a
  * per-row gap would print the same number in all three columns.
  */
-export function LaneView ({ events, selected, onSelect, sessionTones, sessionNames }: {
+export function LaneView ({ events, selected, onSelect, sessionTones, sessionNames, alertsByPath, onOpenAlert }: {
   events: OrchEvent[]
   selected: OrchEvent | null
   onSelect: (e: OrchEvent) => void
   sessionTones?: Map<string, string>
   sessionNames?: Map<string, string>
+  alertsByPath?: Map<string, Alert[]>
+  onOpenAlert?: (a: Alert) => void
 }) {
   // laneRows measures each gap against the previous tile in the same lane, so it
   // needs oldest-first; the display is then flipped back to newest-first.
@@ -112,6 +116,9 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
           <span className="min-w-0 flex-1 font-mono text-xs break-words [overflow-wrap:anywhere]">
             {e.path ? <FilePath path={e.path} /> : rowText(e)}
           </span>
+          {onOpenAlert && e.path && (alertsByPath?.get(e.path)?.length ?? 0) > 0 && (
+            <AlertDot alerts={alertsByPath!.get(e.path)!} onOpen={onOpenAlert} />
+          )}
           {cell.count > 1 && (
             <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 font-mono text-[10px]">
               {t('lane.alsoFiles', { n: cell.count })}
@@ -188,6 +195,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
             </div>
           )
           : (
+            <>
             <div key={`r${i}`} className="grid grid-cols-3 items-start gap-x-2">
               {LANES.map(lane => {
                 const cell = r.cells[lane]
@@ -198,6 +206,7 @@ export function LaneView ({ events, selected, onSelect, sessionTones, sessionNam
                 )
               })}
             </div>
+            </>
           ))}
       </div>
     </div>

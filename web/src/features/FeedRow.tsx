@@ -9,6 +9,8 @@ import { isAuthored, AUTHORED_TONE, TOOL_DESC_TONE } from './authored'
 import { isFree, FREE_ROW_CLASS } from './cost'
 import { sessionLabel } from './session-color'
 import { LineBadge } from './LineBadge'
+import { AlertDot } from './AlertDot'
+import type { Alert } from './alerts'
 import { gapPx, fmtGap, isCapped, isRunning, runningFor, isStalled } from './timeline'
 import { Marked } from './Marked'
 import type { NestedEvent } from './collapse'
@@ -23,6 +25,7 @@ import { cn } from '@/lib/utils'
 export function FeedRow ({
   e, gap, now, depth = 0, folderId, selected, onSelect, running, onZoom, gone,
   onLocate, locatable, expanded, onToggle, lines, sessionTone, sessionName,
+  alerts, onOpenAlert,
   marks = [], ditto
 }: {
   e: NestedEvent
@@ -43,6 +46,8 @@ export function FeedRow ({
   /** Set only when more than one agent is present — otherwise it is noise. */
   sessionTone?: string
   sessionName?: string
+  alerts?: Alert[]
+  onOpenAlert?: (a: Alert) => void
   /** Names recurring across the rows on screen, longest first. */
   marks?: string[]
   /** The row above ran the same tool. */
@@ -148,6 +153,7 @@ export function FeedRow ({
           {!e.burst && e.path && (
             <LineBadge lines={lines?.get(e.path)} />
           )}
+          {onOpenAlert && alerts?.length ? <AlertDot alerts={alerts} onOpen={onOpenAlert} /> : null}
 
           {/* a collapsed call must still say how much it is hiding */}
           {kids > 0 && !expanded && (

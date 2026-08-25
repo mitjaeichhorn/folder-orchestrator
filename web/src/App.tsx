@@ -23,6 +23,9 @@ import { Usage } from '@/features/Usage'
 import { HeatTree } from '@/features/HeatTree'
 import { runningPaths } from '@/features/timeline'
 import { newestEventByPath } from '@/features/group-by-file'
+import { useAlerts } from '@/features/use-alerts'
+import { AlertPanel } from '@/features/AlertPanel'
+import type { Alert } from '@/features/alerts'
 import { lineIndex } from '@/features/lines'
 import { useDebounced } from '@/hooks/useDebounced'
 import { treeFiles } from '@/features/churn'
@@ -98,6 +101,21 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
     () => new Map([...sessionsById].filter(([, r]) => r.aiTitle).map(([id, r]) => [id, r.aiTitle as string])),
     [sessionsById]
   )
+
+  // Conditions worth attention, derived from the same events the feed shows.
+  const { alerts: propositions, byPath: alertsByPath, snooze, mute: muteAlert } = useAlerts(events as never, lines)
+  const [openAlert, setOpenAlert] = useState<Alert | null>(null)
+
+  // clipboard needs a secure context; localhost qualifies, but a failure must
+  // say so rather than silently copying nothing
+  const copyText = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(t(label))
+    } catch {
+      toast.error(t('detail.copyFailed'))
+    }
+  }, [])
 
   const newestByPath = useMemo(() => newestEventByPath(events), [events])
   const openFromTree = useCallback((path: string) => {
@@ -176,7 +194,8 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
             folderId={folder.id} filtersOpen={filtersOpen} running={running}
             onLocate={setHoverPath} locatable={heatOpen}
             treeRows={treeRows} treeError={treeError} lines={lines}
-            sessionNames={sessionNames} />
+            sessionNames={sessionNames}
+            alertsByPath={alertsByPath} onOpenAlert={setOpenAlert} propositions={propositions} />
         </TabsContent>
 
         <TabsContent value="session" className="min-h-0 flex-1 overflow-hidden">
@@ -202,6 +221,22 @@ function Workspace ({ folder, onFolderChange }: { folder: Folder; onFolderChange
           </>
         )}
       </ResizablePanelGroup>
+
+      <Sheet open={!!openAlert} onOpenChange={o => { if (!o) setOpenAlert(null) }}>
+        <SheetContent side="right" className="w-full p-0 sm:max-w-xl">
+          <SheetHeader className="border-b px-4 py-3">
+            <SheetTitle className="text-sm">{t('alert.title')}</SheetTitle>
+          </SheetHeader>
+          {openAlert && (
+            <AlertPanel alert={openAlert} sessionNames={sessionNames}
+              onSnooze={a => { snooze(a); setOpenAlert(null) }}
+              onMute={a => { muteAlert(a); setOpenAlert(null) }}
+              onCopy={text => copyText(text, 'alert.copied')}
+              onOpenFile={p => { window.location.href = `vscode://file/${folder.path}/${p}` }}
+              onLocate={p => { setHoverPath(p); setOpenAlert(null) }} />
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!selected} onOpenChange={o => { if (!o) setSelected(null) }}>
         <SheetContent side="right"

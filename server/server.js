@@ -14,6 +14,8 @@ import { pickFolder } from './pick-folder.js'
 import { log } from './log.js'
 
 const PORT = Number(process.env.ORCH_PORT || 4000)
+/** Events replayed to a new SSE connection. See the note at the backfill loop. */
+const BACKFILL = 1000
 const HOST = '127.0.0.1' // the entire security model. There is no user management.
 const DB_PATH = process.env.ORCH_DB || join(process.cwd(), 'data', 'orchestrator.db')
 const WEB = join(process.cwd(), 'web', 'dist')
@@ -184,7 +186,11 @@ const server = createServer(async (req, res) => {
       })
       res.flushHeaders?.()
       // backfill BEFORE subscribing so there is no gap at the seam
-      for (const e of db.listEvents(database, { folderId, limit: 200 }).reverse()) {
+      // Backfill has to cover the window the client's own rules reason over, not
+      // just what fits on screen: the alert rules need ~8 writes to one file
+      // inside 10 minutes, and at 200 events none of them could ever fire while
+      // the client buffer was sized at 2000. Measured: 1000 events is ~250KB.
+      for (const e of db.listEvents(database, { folderId, limit: BACKFILL }).reverse()) {
         res.write(`event: append\ndata: ${JSON.stringify(e)}\n\n`)
       }
       res.write(`event: status\ndata: ${JSON.stringify(watcher.status(folderId))}\n\n`)

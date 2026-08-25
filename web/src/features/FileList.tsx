@@ -7,6 +7,8 @@ import { allFilesByLastChange, maxChanges, churnShare, churnColor, churnCss, cha
 import { FilePath } from './FilePath'
 import { Thumb } from './Thumb'
 import { LineBadge } from './LineBadge'
+import { AlertDot } from './AlertDot'
+import type { Alert } from './alerts'
 import { inDefaultLongFilter } from './lines'
 import type { OrchEvent } from '@/lib/api'
 import { t, fmtTime, fmtAgo, fmtNum } from '@/i18n'
@@ -31,7 +33,7 @@ type FileRowLike = { path: string; lines?: number }
  * Deliberately a different question from the heat tree: that shades by recency,
  * this by churn, in a different hue family so the two are never confused.
  */
-export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZoom, tree, error }: {
+export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZoom, tree, error, alertsByPath, onOpenAlert }: {
   events: OrchEvent[]
   folderId: string
   onSelect: (e: OrchEvent) => void
@@ -41,6 +43,8 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
   /** Fetched once in Workspace and shared — four surfaces want line counts. */
   tree: Array<{ p: string; m?: number; l?: number }> | null
   error: boolean
+  alertsByPath?: Map<string, Alert[]>
+  onOpenAlert?: (a: Alert) => void
 }) {
 
   const rows = useMemo(
@@ -121,6 +125,7 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
         const share = f.changes > 0 ? churnShare(f.changes, max) : 0
         const tone = churnColor(share)
         const newest = f.events[0]
+        const rowAlerts = alertsByPath?.get(f.path) ?? []   // one row per file here
         return (
           <div key={f.path}
             onClick={() => newest && onSelect(newest)}
@@ -162,6 +167,9 @@ export function FileList ({ events, folderId, onSelect, onLocate, locatable, onZ
 
             {/* The count is the point: "long" is a judgement, 6,314 is a fact. */}
             <LineBadge lines={f.lines} />
+
+            {onOpenAlert && rowAlerts.length
+              ? <AlertDot alerts={rowAlerts} onOpen={onOpenAlert} /> : null}
 
             {f.actors.has('claude') && (
               <Badge variant="secondary" className="shrink-0 text-violet-300">{t('actor.claude')}</Badge>

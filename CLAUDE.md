@@ -256,6 +256,28 @@ JSONL, one object per line, appended live. Relevant shapes:
 `toolUseResult`. Other `type` values (`queue-operation`, `ai-title`, `file-history-snapshot`, …)
 are noise — ignore unknown types silently, the format changes without notice.
 
+- **Propositions are the one place the app INTERPRETS its own data, and the rules were mostly
+  deleted rather than tuned.** "Tokens spent with no writes" fired on topics with zero events —
+  usage is read from the whole transcript while events are only this folder, so it measured
+  bookkeeping. "Consecutive failing calls" found 0 of 76 errors retried with identical input.
+  "Repeated identical command" found 1 in 7,349 events. What survived is mostly not "the agent is
+  stuck" but structural strain: files too long, files two agents fight over.
+- **`stalled` is the only rule asked in the PRESENT TENSE, and that is why it exists.** As a
+  retrospective rule it fired 41 times and resolved 41 times, longest after 60 minutes — so I
+  deleted it. That measurement could not have found a counterexample: an unresolved stretch is by
+  definition still open and never in the history. Three conditions, each removing a different false
+  positive — long since a write, calls still landing, and those calls SPANNING a stretch. Without
+  the third it reported 602-minute stalls that were mornings, because work resumes with a few Bash
+  calls before anything is written. The minutes reported are time SPENT working, measured over the
+  current unbroken run of calls, not time since the last write; across a break those differ by ten
+  hours.
+- **Alerts anchor by PATH, never by event id.** The feed collapses consecutive writes to one file,
+  so a churned file's anchor event is precisely the one most likely to have been merged away and
+  never rendered. Keyed on the id, not one band ever appeared.
+- **The SSE backfill has to cover the window the client's rules reason over.** It was 200 events
+  against a client buffer of 2000; at 200 no alert rule could ever fire. 1000 events is ~450KB per
+  connection, measured.
+
 ## UI conventions
 
 - **Every column owns its own scroll.** A flex item defaults to `min-height: auto`, so it grows to
