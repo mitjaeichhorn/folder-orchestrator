@@ -169,6 +169,14 @@ Keep it at this file count. New concerns go into an existing file until it genui
   `newestEventByPath` compares `ts` (then `id`) rather than array position, because the stream
   arrives oldest-first while the feed reverses it — "first match wins" would be right for one
   caller and quietly wrong for the other.
+- **Only the top THREE grades pulse — white, yellow, orange.** A path can sit in the `running` set
+  while having cooled into the muted tail: the call that named it is still open, but a dozen other
+  things have happened since, so it is no longer where the work is, and pulsing there draws the eye
+  to the coldest thing on screen. `shouldPulse` takes the same `share` the colour uses, so the
+  animation and the hue can never disagree about which grade a row is in, and `PULSE_FLOOR` is read
+  off `HEAT_STOPS` rather than written as a number — change the ramp and the boundary moves with it.
+  Measured: the share is still 0.5 at half of `HEAT_SPAN` and crosses the 0.4 floor at about 25 of
+  40 events.
 - **Only a FILE pulses as "being edited".** Directories emit their own filesystem events — a
   mkdir writes an event whose path IS the directory — so pulsing on path alone lights up a whole
   branch. `shouldPulse` requires `node.d === 0`.

@@ -56,7 +56,9 @@ export function Feed ({
   const [kinds, setKinds] = useState<string[]>([])
   const [pathGlob, setPathGlob] = useState('')
   const [windowMs, setWindowMs] = useState(0)
-  const [view, setView] = useState<'timeline' | 'tree' | 'files' | 'lanes' | 'props'>('timeline')
+  // By file opens first: it answers "what changed" without having to read a
+  // stream, and it is the view the operator lands on most.
+  const [view, setView] = useState<'timeline' | 'tree' | 'files' | 'lanes' | 'props'>('files')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [zoom, setZoom] = useState<string | null>(null)
   const [pinned, setPinned] = useState(true)
@@ -136,12 +138,12 @@ export function Feed ({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b px-4 py-1.5">
+        <Button size="sm" variant={view === 'files' ? 'secondary' : 'ghost'}
+          onClick={() => setView('files')}>{t('view.byFile')}</Button>
         <Button size="sm" variant={view === 'timeline' ? 'secondary' : 'ghost'}
           onClick={() => setView('timeline')}>{t('view.timeline')}</Button>
         <Button size="sm" variant={view === 'tree' ? 'secondary' : 'ghost'}
           onClick={() => setView('tree')}>{t('view.byTopic')}</Button>
-        <Button size="sm" variant={view === 'files' ? 'secondary' : 'ghost'}
-          onClick={() => setView('files')}>{t('view.byFile')}</Button>
         <Button size="sm" variant={view === 'lanes' ? 'secondary' : 'ghost'}
           onClick={() => setView('lanes')}>{t('view.byLane')}</Button>
         {/* only exists while something is proposed — an always-present tab

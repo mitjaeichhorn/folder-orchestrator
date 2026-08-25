@@ -51,7 +51,7 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, 
   // the CSS animation replay — re-rendering the same element would not.
   const flash = justChanged(heat, node.p)
   const flashKey = flash ? stampOf(heat, node.p) : 'idle'
-  const pulsing = shouldPulse(node, running)
+  const pulsing = shouldPulse(node, running, h)
   // at full heat heatColor returns pure white; weight carries the same signal
   // for anyone who cannot separate white from near-white at 10px
   const justEdited = h >= 1

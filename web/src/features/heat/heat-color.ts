@@ -15,6 +15,15 @@ export const HEAT_STOPS = [
 export const heatColor = makeRamp(HEAT_STOPS)
 
 /**
+ * The bottom of the third grade — orange, the last band before the muted tail.
+ *
+ * Read off the stops rather than written as a number, so a change to the ramp
+ * moves anything keyed to it. Used to decide what may pulse: only the top three
+ * grades, white through orange.
+ */
+export const PULSE_FLOOR = HEAT_STOPS[HEAT_STOPS.length - 2].at
+
+/**
  * Heat is carried by COLOUR ALONE — never element opacity.
  *
  * Opacity dims an element's background as well as its text, so a cold branch cut

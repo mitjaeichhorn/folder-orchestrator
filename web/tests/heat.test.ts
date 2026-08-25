@@ -4,6 +4,7 @@ import {
   emptyHeat, touch, touchAll, heatOf, ancestors, prune, justChanged, stampOf, hasHeat, HEAT_SPAN, MIN_HEAT, heatPaths, inGrade
 } from '../src/features/heat/heat.ts'
 import { pruneToActive, activeFolders, shouldPulse } from '../src/features/heat/prune-tree.ts'
+import { PULSE_FLOOR, HEAT_STOPS } from '../src/features/heat/heat-color.ts'
 import { heatColor, heatStyle } from '../src/features/heat/heat-color.ts'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_HUE, LOCATE_ICON_TONE, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from '../src/features/heat/locate.ts'
 
@@ -403,4 +404,37 @@ test('the grade window is the ramp, so visibility and colour move together', () 
   for (let i = 0; i < HEAT_SPAN / 2; i++) s = touch(s, `f${i}.ts`)
   assert.equal(inGrade(s, 'x.ts'), true)
   assert.ok(heatOf(s, 'x.ts') > MIN_HEAT, 'above the floor, therefore shown')
+})
+
+test('only the top three grades pulse — white, yellow, orange', () => {
+  const running = new Set(['src/a.ts'])
+  const node = { p: 'src/a.ts', d: 0 as const }
+  assert.equal(shouldPulse(node, running, 1), true, 'white')
+  assert.equal(shouldPulse(node, running, PULSE_FLOOR), true, 'orange, the third grade')
+  assert.equal(shouldPulse(node, running, PULSE_FLOOR - 0.01), false, 'into the muted tail')
+  assert.equal(shouldPulse(node, running, 0), false, 'cold')
+})
+
+test('the pulse floor is read off the ramp, not written twice', () => {
+  // If the stops change, the pulse boundary must move with them — otherwise the
+  // animation and the hue disagree about which grade a row is in.
+  assert.equal(PULSE_FLOOR, HEAT_STOPS[HEAT_STOPS.length - 2].at)
+  assert.ok(PULSE_FLOOR > 0 && PULSE_FLOOR < 1)
+})
+
+test('a cooled file in the running set no longer pulses', () => {
+  // A call that named it can still be open while a dozen other things have
+  // happened since — pulsing there points at the coldest thing on screen.
+  // measured: the share is still 0.5 at half the span and crosses the 0.4 floor
+  // at about 25 of 40 events, so the fixture has to go well past halfway
+  let s = emptyHeat()
+  s = touch(s, 'src/a.ts')
+  for (let i = 0; i < HEAT_SPAN * 0.75; i++) s = touch(s, `other${i}.ts`)
+  const share = heatOf(s, 'src/a.ts')
+  assert.ok(share < PULSE_FLOOR, `share ${share} should have cooled past the floor`)
+  assert.equal(shouldPulse({ p: 'src/a.ts', d: 0 }, new Set(['src/a.ts']), share), false)
+})
+
+test('a directory never pulses, whatever its grade', () => {
+  assert.equal(shouldPulse({ p: 'src', d: 1 }, new Set(['src']), 1), false)
 })
