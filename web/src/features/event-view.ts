@@ -1,5 +1,6 @@
 import type { OrchEvent } from '@/lib/api'
 import { t } from '@/i18n'
+import { bashGist } from './bash-gist'
 
 export { AUTHORED_TONE, isAuthored } from './authored'
 
@@ -28,7 +29,7 @@ export function rowText (e: OrchEvent): string {
     const d = e.detail?.input
     // Claude Code's Bash tool carries its own description — a written summary,
     // no inference needed. Fall back to the command's first line.
-    return oneLine(d?.description || d?.command || '')
+    return d?.description ? oneLine(d.description) : bashGist(d?.command || '')
   }
   if (e.kind === 'renamed' && e.detail?.oldPath) return `${e.path}  ←  ${e.detail.oldPath}`
   return e.path ?? ''
