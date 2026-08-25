@@ -1,8 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  lineIndex, showsLineBadge, inDefaultLongFilter,
-  lineTone, LINE_TIER_ORANGE, LINE_TIER_YELLOW
+  lineIndex, showsLineBadge, inDefaultLongFilter, lineTone, LINE_TIER_ORANGE, LINE_TIER_YELLOW, lineIconTone
 } from '../src/features/lines.ts'
 import { LINE_ALERT_AT, isExecutablePath } from '../../shared/glob.js'
 
@@ -64,4 +63,21 @@ test('the tiers order hot-to-cold the way this app reads heat', () => {
   // reverse of a traffic light and matches the heat ramp instead.
   assert.notEqual(lineTone(6314), lineTone(2500))
   assert.notEqual(lineTone(2500), lineTone(1500))
+})
+
+test('the tree icon is never muted — an alert you cannot see is not an alert', () => {
+  // lineTone's base tier is fine on a pill that carries the number; as a 10px
+  // glyph it measured oklch(0.708 0 0) against the tree and vanished. Most
+  // flagged files sit in that base tier: 130 over 1,000 against far fewer above.
+  for (const n of [1001, 1199, 2500, 6314]) {
+    assert.doesNotMatch(lineIconTone(n), /muted|zinc|slate|neutral/, String(n))
+  }
+})
+
+test('the icon keeps the same three-step ranking as the pill', () => {
+  assert.notEqual(lineIconTone(1500), lineIconTone(2500))
+  assert.notEqual(lineIconTone(2500), lineIconTone(6314))
+  assert.equal(lineIconTone(LINE_TIER_ORANGE), lineIconTone(1001), 'boundary is strictly over')
+  assert.match(lineIconTone(LINE_TIER_ORANGE + 1), /orange/)
+  assert.match(lineIconTone(LINE_TIER_YELLOW + 1), /yellow/)
 })

@@ -5,7 +5,7 @@ import { useDebounced } from '@/hooks/useDebounced'
 import { emptyHeat, touchAll, heatPaths, heatOf, prune, justChanged, stampOf, hasHeat, type HeatState } from './heat'
 import { activeFolders, allFolders, shouldPulse } from './prune-tree'
 import { treeFromPaths } from './tree-from-paths'
-import { showsLineBadge, lineTone } from './lines'
+import { showsLineBadge, lineIconTone } from './lines'
 import { chainOf, revealPredicate, isOpenWith, LOCATE_CHAIN_CLASS, LOCATE_TARGET_CLASS } from './locate'
 import { newestEventByPath } from './group-by-file'
 import { heatStyle } from './heat-color'
@@ -65,7 +65,7 @@ function Branch ({ node, heat, depth, closed, toggle, running, chain, openable, 
         // the title lives on a wrapper: lucide icons take no title prop
         <span className="ml-auto shrink-0"
           title={t('files.longFile', { n: fmtNum(n), at: fmtNum(LINE_ALERT_AT) })}>
-          <TriangleAlert className={cn('size-2.5', lineTone(n))}
+          <TriangleAlert className={cn('size-3', lineIconTone(n))}
             aria-label={t('files.lines', { n: fmtNum(n) })} />
         </span>
         )

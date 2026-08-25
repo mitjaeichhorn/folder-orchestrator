@@ -41,6 +41,23 @@ export function lineTone (lines: number): string {
   return 'text-muted-foreground'
 }
 
+/**
+ * The same three tiers for a bare GLYPH, with the floor lifted off muted.
+ *
+ * `lineTone` was designed for a pill that carries the number, where the base
+ * tier can afford to be quiet because the text still reads. A 10px triangle at
+ * `text-muted-foreground` is invisible against the tree — measured at
+ * `oklch(0.708 0 0)`, flush to the panel edge — and the base tier is where most
+ * flagged files live: 130 over 1,000 lines against far fewer over 2,000. An
+ * alert nobody can see is not an alert, so the ranking is kept and the floor
+ * moved to amber.
+ */
+export function lineIconTone (lines: number): string {
+  if (lines > LINE_TIER_YELLOW) return 'text-yellow-400'
+  if (lines > LINE_TIER_ORANGE) return 'text-orange-400'
+  return 'text-amber-500'
+}
+
 /** Files the default "over N lines" filter collects — python excluded. */
 export function inDefaultLongFilter (path: string, lines?: number): boolean {
   return showsLineBadge(lines) && !isBadgeExempt(path)
